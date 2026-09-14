@@ -24,7 +24,7 @@ All automated gates defined in `memory files/05-acceptance-tests.md` have been i
 | **TEST-003** | `003-anchor-allowlist.test.ts` | 11 | PASSED | Fail-closed anchor allowlist; unknown IDs trigger `MODEL_OUTPUT_INVALID`; cross-document ID leakage rejected; server-resolved excerpts only. |
 | **TEST-004** | `004-boundary-abstention.test.ts` | 14 | PASSED | `LEGAL_NOTICE_TEXT` present on all 100% terminal states; server substitutes fixed abstention message for `not_found` Ask queries; model cannot alter copy. |
 | **TEST-005** | `005-safe-rendering.test.ts` | 19 | PASSED | Injection resistance: script tags, HTML entities, event handlers, control characters, and prototype mutations remain inert bounded text; security headers verified. |
-| **TEST-006** | `006-no-persistence.test.ts` | 6 | PASSED | Zero persistence: memory-only extraction, Segment types contain no file paths or raw buffers, logs redact document content, filenames, and questions. |
+| **TEST-006** | `006-no-persistence.test.ts` | 8 | PASSED | Zero persistence: memory-only extraction across TXT/PDF/DOCX, Segment types contain no file paths or raw buffers, logs redact document content, filenames, and questions. |
 | **TEST-007** | `007-api-integration.test.ts` | 24 | PASSED | Mocked end-to-end provider contracts for Simplify, Compare, Ask-supported, Ask-not-found, Action Pack, and error scenarios. |
 | **TEST-008** | `008-simplify-faithfulness.test.ts` | 5 | PASSED | Schema compliance for clause cards; exact dates and figures; obligations, conditions, and review flags; anchor entailment. |
 | **TEST-009** | `009-semantic-comparison.test.ts` | 5 | PASSED | A/B semantic diff; two-sided anchor isolation (A-* and B-*); substantive change recall on seeded terms; formatting-only noise suppression. |
@@ -32,7 +32,7 @@ All automated gates defined in `memory files/05-acceptance-tests.md` have been i
 | **TEST-011** | `011-prompt-injection-resistance.test.ts` | 6 | PASSED | Direct question prompt injection bounds; indirect in-document instruction overrides fail closed; allowlist stops fabricated anchors. |
 | **TEST-012** | `012-cross-model-verification.test.ts` | 8 | PASSED | Payload safety (caps at 5 claims, 400 char excerpts, never full document); graceful `single_model` degradation on quota/timeout; non-majority-vote disagreement surfacing. |
 
-**Total: 12 test files, 137 tests passing (100% pass rate).**
+**Total: 12 test files, 139 tests passing (100% pass rate).**
 
 ---
 

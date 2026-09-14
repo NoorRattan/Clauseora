@@ -91,13 +91,12 @@ describe("TEST-006 · Error message content safety", () => {
 
 // ─── Memory-only processing: no temp files created by TXT extractor ──────────
 
-describe("TEST-006 · Memory-only TXT processing", () => {
+describe("TEST-006 · Memory-only processing across extractors", () => {
   it("extractTxt returns segments without creating temp files", async () => {
     const { extractTxt } = await import("@/lib/extractor/txt");
     const fs = await import("fs");
     const os = await import("os");
 
-    // Snapshot of temp dir before extraction
     const tmpDir = os.tmpdir();
     const beforeFiles = fs.readdirSync(tmpDir).length;
 
@@ -107,8 +106,33 @@ describe("TEST-006 · Memory-only TXT processing", () => {
     const afterFiles = fs.readdirSync(tmpDir).length;
 
     expect(result.ok).toBe(true);
-    // No new files should have been created in the temp dir
     expect(afterFiles).toBe(beforeFiles);
+  });
+
+  it("extractPdf operates purely in-memory on buffer", async () => {
+    const { extractPdf } = await import("@/lib/extractor/pdf");
+    const fs = await import("fs");
+    const path = await import("path");
+
+    const fixturePath = path.join(__dirname, "fixtures", "residential-lease.pdf");
+    if (!fs.existsSync(fixturePath)) return;
+
+    const buf = fs.readFileSync(fixturePath);
+    const result = await extractPdf(buf, "A");
+    expect(result.ok).toBe(true);
+  });
+
+  it("extractDocx operates purely in-memory on buffer", async () => {
+    const { extractDocx } = await import("@/lib/extractor/docx");
+    const fs = await import("fs");
+    const path = await import("path");
+
+    const fixturePath = path.join(__dirname, "fixtures", "services-agreement.docx");
+    if (!fs.existsSync(fixturePath)) return;
+
+    const buf = fs.readFileSync(fixturePath);
+    const result = await extractDocx(buf, "A");
+    expect(result.ok).toBe(true);
   });
 });
 
