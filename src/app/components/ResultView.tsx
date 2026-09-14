@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type {
   Mode,
   AnchorRef,
@@ -13,6 +14,19 @@ import type {
 } from "@/types/evidence";
 import { VerificationBadge } from "./VerificationBadge";
 import { LEGAL_NOTICE_TEXT } from "@/types/evidence";
+import {
+  ChevronDown,
+  CheckCircle,
+  AlertTriangle,
+  Scale,
+  DollarSign,
+  Clock,
+  HelpCircle,
+  CheckSquare,
+  Square,
+  Bookmark,
+  Sparkles,
+} from "lucide-react";
 
 interface ResultViewProps {
   mode: Mode;
@@ -37,16 +51,18 @@ function EvidenceChip({
   const anchor = resolvedAnchors.find((a) => a.anchorId === anchorId);
   if (!anchor) return null;
   return (
-    <button
+    <motion.button
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.96 }}
       type="button"
-      className="evidence-chip"
       onClick={() => onEvidenceClick(anchor)}
       aria-label={`Evidence: ${anchor.locator}`}
-      title={anchor.locator}
+      title={`Click to view verbatim source excerpt: ${anchor.locator}`}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400 shadow-sm transition-all duration-200"
     >
-      <span aria-hidden="true">📄</span>
-      {anchor.locator}
-    </button>
+      <Bookmark className="w-3 h-3 text-amber-400" />
+      <span>{anchor.locator}</span>
+    </motion.button>
   );
 }
 
@@ -61,7 +77,8 @@ function EvidenceChips({
 }) {
   if (!ids?.length) return null;
   return (
-    <div className="flex flex-wrap gap-1" style={{ marginTop: "0.5rem" }}>
+    <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+      <span className="text-[11px] font-mono text-slate-500 mr-0.5">Anchors:</span>
       {ids.map((id) => (
         <EvidenceChip
           key={id}
@@ -76,18 +93,56 @@ function EvidenceChips({
 
 // ─── Kind Badge ────────────────────────────────────────────────────────────────
 
-const KIND_LABELS: Record<ClauseItem["kind"], string> = {
-  obligation: "Obligation",
-  deadline: "Deadline",
-  money: "Money",
-  condition: "Condition",
-  review_flag: "Review",
+const KIND_CONFIG: Record<
+  ClauseItem["kind"],
+  { label: string; bg: string; text: string; border: string; icon: React.ReactNode }
+> = {
+  obligation: {
+    label: "Obligation",
+    bg: "bg-cyan-500/10",
+    text: "text-cyan-300",
+    border: "border-cyan-500/30",
+    icon: <Scale className="w-3 h-3 text-cyan-400" />,
+  },
+  deadline: {
+    label: "Deadline",
+    bg: "bg-amber-500/10",
+    text: "text-amber-300",
+    border: "border-amber-500/30",
+    icon: <Clock className="w-3 h-3 text-amber-400" />,
+  },
+  money: {
+    label: "Financial",
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-300",
+    border: "border-emerald-500/30",
+    icon: <DollarSign className="w-3 h-3 text-emerald-400" />,
+  },
+  condition: {
+    label: "Condition",
+    bg: "bg-purple-500/10",
+    text: "text-purple-300",
+    border: "border-purple-500/30",
+    icon: <HelpCircle className="w-3 h-3 text-purple-400" />,
+  },
+  review_flag: {
+    label: "Review Flag",
+    bg: "bg-rose-500/10",
+    text: "text-rose-300",
+    border: "border-rose-500/30",
+    icon: <AlertTriangle className="w-3 h-3 text-rose-400" />,
+  },
 };
 
 function KindBadge({ kind }: { kind: ClauseItem["kind"] }) {
+  const conf = KIND_CONFIG[kind];
   return (
-    <span className={`kind-badge kind-${kind}`} aria-label={`Item type: ${KIND_LABELS[kind]}`}>
-      {KIND_LABELS[kind]}
+    <span
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-medium tracking-wide uppercase ${conf.bg} ${conf.text} border ${conf.border}`}
+      aria-label={`Item type: ${conf.label}`}
+    >
+      {conf.icon}
+      {conf.label}
     </span>
   );
 }
@@ -114,81 +169,185 @@ function SimplifyView({
     });
   };
 
+  const expandAll = () => {
+    setOpenClauses(new Set(result.clauses.map((_, i) => i)));
+  };
+
+  const collapseAll = () => {
+    setOpenClauses(new Set());
+  };
+
   if (!result.clauses?.length) {
     return (
-      <p className="text-muted" style={{ padding: "1rem 0" }}>
-        No clauses were identified in this document.
-      </p>
+      <div className="p-8 text-center rounded-2xl border border-white/10 bg-obsidian-900/60">
+        <p className="text-slate-400 text-sm">No clauses were identified in this document.</p>
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {result.clauses.map((clause, i) => {
-        const isOpen = openClauses.has(i);
-        return (
-          <div key={i} className="clause-card">
-            <button
-              type="button"
-              className="clause-header"
-              aria-expanded={isOpen}
-              aria-controls={`clause-body-${i}`}
-              onClick={() => toggleClause(i)}
+    <div className="space-y-4">
+      {/* View controls */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs font-mono text-slate-400">
+          Showing {result.clauses.length} structured clause section
+          {result.clauses.length !== 1 ? "s" : ""}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={expandAll}
+            className="text-xs font-mono text-slate-400 hover:text-white px-2 py-1 rounded bg-white/5 border border-white/10 transition-colors"
+          >
+            Expand All
+          </button>
+          <button
+            type="button"
+            onClick={collapseAll}
+            className="text-xs font-mono text-slate-400 hover:text-white px-2 py-1 rounded bg-white/5 border border-white/10 transition-colors"
+          >
+            Collapse All
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {result.clauses.map((clause, i) => {
+          const isOpen = openClauses.has(i);
+          return (
+            <motion.div
+              key={i}
+              initial={false}
+              className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
+                isOpen
+                  ? "border-white/20 bg-obsidian-900/90 shadow-glass-elevated"
+                  : "border-white/10 bg-obsidian-900/50 hover:border-white/20 hover:bg-obsidian-850/60"
+              } backdrop-blur-xl`}
             >
-              <span className="clause-topic">{clause.topic}</span>
-              <span aria-hidden="true" style={{ color: "var(--text-muted)", transition: "transform 0.2s", display: "inline-block", transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>
-                ›
-              </span>
-            </button>
+              {/* Card Header Accordion Trigger */}
+              <button
+                type="button"
+                className="w-full px-6 py-4 flex items-center justify-between text-left transition-colors"
+                aria-expanded={isOpen}
+                aria-controls={`clause-body-${i}`}
+                onClick={() => toggleClause(i)}
+              >
+                <div className="flex items-center gap-3 min-w-0 pr-4">
+                  <span className="text-xs font-mono text-amber-400 font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 flex-shrink-0">
+                    § 0{i + 1}
+                  </span>
+                  <span className="text-base font-bold text-white tracking-tight truncate">
+                    {clause.topic}
+                  </span>
+                </div>
 
-            {isOpen && (
-              <div className="clause-body" id={`clause-body-${i}`}>
-                <p style={{ fontSize: "0.9375rem", marginBottom: "0.875rem", color: "var(--text-primary)" }}>
-                  {clause.plainLanguage}
-                </p>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  {clause.items?.length > 0 && (
+                    <span className="text-[11px] font-mono text-slate-400 hidden sm:inline-block">
+                      {clause.items.length} item{clause.items.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                  <motion.div
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center text-slate-400"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </motion.div>
+                </div>
+              </button>
 
-                <EvidenceChips ids={clause.anchorIds} resolvedAnchors={resolvedAnchors} onEvidenceClick={onEvidenceClick} />
-
-                {clause.definedTerms?.length > 0 && (
-                  <div style={{ marginTop: "0.875rem" }}>
-                    <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.375rem" }}>
-                      Defined Terms
-                    </div>
-                    {clause.definedTerms.map((dt, di) => (
-                      <div key={di} style={{ fontSize: "0.875rem", marginBottom: "0.25rem" }}>
-                        <span style={{ fontWeight: 600, color: "var(--blue-400)" }}>{dt.term}</span>
-                        {" — "}
-                        {dt.meaningInContext}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {clause.items?.length > 0 && (
-                  <div style={{ marginTop: "0.875rem" }}>
-                    {clause.items.map((item, ii) => (
-                      <div key={ii} className="item-row">
-                        <KindBadge kind={item.kind} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: "0.9rem" }}>
-                            {item.party && item.party !== "not_stated" && (
-                              <span style={{ fontWeight: 600, color: "var(--text-secondary)", marginRight: "0.375rem" }}>
-                                {item.party}:
-                              </span>
-                            )}
-                            {item.statement}
-                          </div>
-                          <EvidenceChips ids={item.anchorIds} resolvedAnchors={resolvedAnchors} onEvidenceClick={onEvidenceClick} />
+              {/* Card Body with Framer Motion AnimatePresence */}
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div
+                    key="content"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    id={`clause-body-${i}`}
+                  >
+                    <div className="px-6 pb-6 pt-2 border-t border-white/5 space-y-5">
+                      {/* Plain Language Synthesis */}
+                      <div>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
+                          Plain Language Translation
                         </div>
+                        <p className="text-slate-200 text-sm leading-relaxed font-sans">
+                          {clause.plainLanguage}
+                        </p>
+                        <EvidenceChips
+                          ids={clause.anchorIds}
+                          resolvedAnchors={resolvedAnchors}
+                          onEvidenceClick={onEvidenceClick}
+                        />
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Defined Terms */}
+                      {clause.definedTerms?.length > 0 && (
+                        <div className="p-4 rounded-xl bg-obsidian-950/60 border border-white/5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-cyan-400 mb-2 font-mono flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Defined Legal Terms</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            {clause.definedTerms.map((dt, di) => (
+                              <div
+                                key={di}
+                                className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 text-xs leading-normal"
+                              >
+                                <span className="font-bold text-cyan-300 font-mono">
+                                  {dt.term}
+                                </span>
+                                <span className="text-slate-400"> — {dt.meaningInContext}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Itemized Terms / Specific Obligations */}
+                      {clause.items?.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                            Substantive Breakdown & Conditions
+                          </div>
+                          <div className="space-y-2">
+                            {clause.items.map((item, ii) => (
+                              <div
+                                key={ii}
+                                className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
+                              >
+                                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                                  <KindBadge kind={item.kind} />
+                                  {item.party && item.party !== "not_stated" && (
+                                    <span className="text-xs font-semibold text-slate-300 bg-white/5 px-2 py-0.5 rounded">
+                                      Party: {item.party}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-sm text-slate-200 leading-relaxed font-sans">
+                                  {item.statement}
+                                </div>
+                                <EvidenceChips
+                                  ids={item.anchorIds}
+                                  resolvedAnchors={resolvedAnchors}
+                                  onEvidenceClick={onEvidenceClick}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
                 )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -213,71 +372,129 @@ function CompareView({
   const filtered = filter === "all" ? changes : changes.filter((c) => c.changeType === filter);
 
   return (
-    <div>
-      {/* Filter tabs */}
-      <div className="filter-tabs mb-4" role="group" aria-label="Filter changes">
+    <div className="space-y-4">
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 flex-wrap" role="group" aria-label="Filter changes">
         {filters.map((f) => {
-          const count = f === "all" ? changes.length : changes.filter((c) => c.changeType === f).length;
+          const count =
+            f === "all" ? changes.length : changes.filter((c) => c.changeType === f).length;
+          const isActive = filter === f;
           return (
             <button
               key={f}
               type="button"
-              className={`filter-btn${filter === f ? " active" : ""}`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium font-mono transition-all duration-200 ${
+                isActive
+                  ? "bg-amber-500 text-obsidian-950 font-bold shadow-glow-amber"
+                  : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border border-white/10"
+              }`}
               onClick={() => setFilter(f)}
-              aria-pressed={filter === f}
+              aria-pressed={isActive}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}{" "}
-              <span style={{ opacity: 0.6 }}>({count})</span>
+              <span className="opacity-75">({count})</span>
             </button>
           );
         })}
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card" style={{ textAlign: "center", color: "var(--text-secondary)" }}>
-          <p>No substantive changes were identified by Clauseora.</p>
-          <p className="text-xs mt-2" style={{ marginTop: "0.5rem" }}>
-            Important content may have been missed. Verify important points in the source document.
+        <div className="p-8 text-center rounded-2xl border border-white/10 bg-obsidian-900/60">
+          <p className="text-slate-300 font-medium">No substantive changes match this filter.</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Important content may have been missed. Always verify against source documents.
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="space-y-4">
           {filtered.map((change, i) => (
-            <div key={i} className={`change-card change-${change.changeType}`}>
-              <div className="change-header">
-                <span
-                  className={`kind-badge kind-${change.changeType === "added" ? "money" : change.changeType === "removed" ? "review_flag" : "condition"}`}
-                  style={{ flexShrink: 0 }}
-                >
-                  {change.changeType.toUpperCase()}
-                </span>
-                <span style={{ fontWeight: 600 }}>{change.topic}</span>
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className={`rounded-2xl border ${
+                change.changeType === "added"
+                  ? "border-emerald-500/30 bg-emerald-950/10"
+                  : change.changeType === "removed"
+                  ? "border-rose-500/30 bg-rose-950/10"
+                  : "border-amber-500/30 bg-amber-950/10"
+              } backdrop-blur-xl p-6 space-y-4 shadow-glass-subtle`}
+            >
+              {/* Change Header */}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`px-2.5 py-0.5 rounded text-[11px] font-bold font-mono uppercase tracking-wider ${
+                      change.changeType === "added"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                        : change.changeType === "removed"
+                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                        : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                    }`}
+                  >
+                    {change.changeType}
+                  </span>
+                  <span className="text-base font-bold text-white tracking-tight">
+                    {change.topic}
+                  </span>
+                </div>
               </div>
 
-              <div className="change-columns">
-                <div>
-                  <div className="change-col-label">Document A (Before)</div>
-                  <p style={{ fontSize: "0.9rem", color: change.before ? "var(--text-primary)" : "var(--text-muted)" }}>
-                    {change.before ?? "Not present in this version"}
+              {/* Side-by-Side Comparison Columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                {/* Before: Document A */}
+                <div className="p-4 rounded-xl bg-obsidian-950/60 border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-slate-400">
+                    <span>Document A (Before)</span>
+                    <span className="text-slate-600">Original</span>
+                  </div>
+                  <p
+                    className={`text-sm leading-relaxed ${
+                      change.before ? "text-slate-200" : "text-slate-500 italic"
+                    }`}
+                  >
+                    {change.before ?? "Not present in original version"}
                   </p>
-                  <EvidenceChips ids={change.anchorIdsA} resolvedAnchors={resolvedAnchors} onEvidenceClick={onEvidenceClick} />
+                  <EvidenceChips
+                    ids={change.anchorIdsA}
+                    resolvedAnchors={resolvedAnchors}
+                    onEvidenceClick={onEvidenceClick}
+                  />
                 </div>
-                <div>
-                  <div className="change-col-label">Document B (After)</div>
-                  <p style={{ fontSize: "0.9rem", color: change.after ? "var(--text-primary)" : "var(--text-muted)" }}>
-                    {change.after ?? "Not present in this version"}
+
+                {/* After: Document B */}
+                <div className="p-4 rounded-xl bg-obsidian-950/60 border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-mono font-semibold text-slate-400">
+                    <span>Document B (After)</span>
+                    <span className="text-slate-600">Revised</span>
+                  </div>
+                  <p
+                    className={`text-sm leading-relaxed ${
+                      change.after ? "text-slate-200" : "text-slate-500 italic"
+                    }`}
+                  >
+                    {change.after ?? "Removed from revised version"}
                   </p>
-                  <EvidenceChips ids={change.anchorIdsB} resolvedAnchors={resolvedAnchors} onEvidenceClick={onEvidenceClick} />
+                  <EvidenceChips
+                    ids={change.anchorIdsB}
+                    resolvedAnchors={resolvedAnchors}
+                    onEvidenceClick={onEvidenceClick}
+                  />
                 </div>
               </div>
 
+              {/* Why Review Callout */}
               {change.whyReview && (
-                <div style={{ padding: "0.75rem 1.25rem", borderTop: "1px solid var(--border-subtle)", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>Why review: </span>
-                  {change.whyReview}
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 leading-relaxed flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-amber-300">Review Rationale:</span>{" "}
+                    {change.whyReview}
+                  </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
@@ -297,32 +514,67 @@ function AskView({
   onEvidenceClick: (anchor: AnchorRef) => void;
 }) {
   const statusConfig = {
-    supported: { className: "ask-status-badge ask-supported", icon: "✓", label: "Supported by document" },
-    partially_supported: { className: "ask-status-badge ask-partial", icon: "◐", label: "Partially supported" },
-    not_found: { className: "ask-status-badge ask-not-found", icon: "✕", label: "Not stated in this document" },
+    supported: {
+      border: "border-emerald-500/30",
+      bg: "bg-emerald-950/20",
+      text: "text-emerald-300",
+      icon: <CheckCircle className="w-4 h-4 text-emerald-400" />,
+      label: "Directly Supported by Document",
+    },
+    partially_supported: {
+      border: "border-amber-500/30",
+      bg: "bg-amber-950/20",
+      text: "text-amber-300",
+      icon: <AlertTriangle className="w-4 h-4 text-amber-400" />,
+      label: "Partially Supported / Contextual",
+    },
+    not_found: {
+      border: "border-slate-700/50",
+      bg: "bg-slate-900/30",
+      text: "text-slate-300",
+      icon: <HelpCircle className="w-4 h-4 text-slate-400" />,
+      label: "Not Stated in Document",
+    },
   }[result.status];
 
   return (
-    <div>
-      <div className={statusConfig.className} style={{ marginBottom: "1rem" }}>
-        <span aria-hidden="true">{statusConfig.icon}</span>
-        {statusConfig.label}
+    <div className="space-y-4">
+      {/* Status Pill */}
+      <div
+        className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold tracking-wide uppercase ${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border}`}
+      >
+        {statusConfig.icon}
+        <span>{statusConfig.label}</span>
       </div>
 
-      <div className="card-elevated" style={{ marginBottom: "1rem" }}>
-        <p style={{ fontSize: "0.9375rem", lineHeight: 1.7 }}>{result.answer}</p>
+      {/* Answer Box */}
+      <div className="rounded-2xl border border-white/10 bg-obsidian-900/80 backdrop-blur-xl p-6 sm:p-8 shadow-glass-elevated space-y-4">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+          Cognitive Response
+        </div>
+        <p className="text-slate-100 text-base leading-relaxed font-sans">{result.answer}</p>
         {result.status !== "not_found" && (
-          <EvidenceChips ids={result.anchorIds} resolvedAnchors={resolvedAnchors} onEvidenceClick={onEvidenceClick} />
+          <EvidenceChips
+            ids={result.anchorIds}
+            resolvedAnchors={resolvedAnchors}
+            onEvidenceClick={onEvidenceClick}
+          />
         )}
       </div>
 
+      {/* Not Established List */}
       {result.notEstablished?.length > 0 && (
-        <div style={{ marginTop: "1rem" }}>
-          <div className="text-xs text-muted" style={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>
-            Not established by this document
+        <div className="p-5 rounded-2xl border border-white/10 bg-obsidian-950/60 space-y-2.5">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+            Not Established by this Document
           </div>
-          <ul style={{ paddingLeft: "1.25rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-            {result.notEstablished.map((item, i) => <li key={i}>{item}</li>)}
+          <ul className="space-y-1.5">
+            {result.notEstablished.map((item, i) => (
+              <li key={i} className="text-xs text-slate-400 flex items-start gap-2">
+                <span className="text-slate-600 font-bold">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
           </ul>
         </div>
       )}
@@ -341,48 +593,120 @@ function ActionPackSection({
   resolvedAnchors: AnchorRef[];
   onEvidenceClick: (anchor: AnchorRef) => void;
 }) {
+  const [completedItems, setCompletedItems] = useState<Set<number>>(new Set());
+
+  const toggleItem = (idx: number) => {
+    setCompletedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
   const hasChecklist = actionPack.checklist?.length > 0;
   const hasQuestions = actionPack.lawyerQuestions?.length > 0;
 
   if (!hasChecklist && !hasQuestions) return null;
 
   return (
-    <div className="action-pack-section">
+    <div className="mt-8 pt-8 border-t border-white/10 space-y-6">
+      {/* Section Title */}
+      <div className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+          <CheckSquare className="w-4 h-4" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white tracking-tight">Action Pack</h2>
+          <p className="text-xs text-slate-400">
+            Immediate execution checklist and key questions for legal counsel
+          </p>
+        </div>
+      </div>
+
+      {/* Interactive Checklist */}
       {hasChecklist && (
-        <section aria-labelledby="checklist-heading">
-          <h2 id="checklist-heading" className="action-pack-header">
-            <span aria-hidden="true">✅</span> Action Checklist
-          </h2>
-          {actionPack.checklist.map((item, i) => (
-            <div key={i} className="checklist-item">
-              <div className="checklist-bullet" aria-hidden="true" />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 500, marginBottom: "0.25rem" }}>{item.item}</div>
-                {item.party && item.party !== "not_stated" && (
-                  <div className="text-sm text-muted">Party: {item.party}</div>
-                )}
-                {item.dueOrTrigger && item.dueOrTrigger !== "not_stated" && (
-                  <div className="text-sm text-muted">When: {item.dueOrTrigger}</div>
-                )}
-                <EvidenceChips ids={item.anchorIds} resolvedAnchors={resolvedAnchors} onEvidenceClick={onEvidenceClick} />
-              </div>
-            </div>
-          ))}
+        <section aria-labelledby="checklist-heading" className="space-y-3">
+          <h3 id="checklist-heading" className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+            Execution Checklist ({completedItems.size}/{actionPack.checklist.length} completed)
+          </h3>
+          <div className="space-y-2">
+            {actionPack.checklist.map((item, i) => {
+              const isChecked = completedItems.has(i);
+              return (
+                <div
+                  key={i}
+                  onClick={() => toggleItem(i)}
+                  className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
+                    isChecked
+                      ? "border-white/5 bg-white/[0.01] opacity-60"
+                      : "border-white/10 bg-obsidian-900/60 hover:border-white/20 hover:bg-obsidian-850/60"
+                  } backdrop-blur-xl flex items-start gap-3`}
+                >
+                  <button
+                    type="button"
+                    aria-label={isChecked ? "Mark incomplete" : "Mark complete"}
+                    className="mt-0.5 text-amber-400 focus:outline-none"
+                  >
+                    {isChecked ? (
+                      <CheckSquare className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <Square className="w-4 h-4 text-slate-500 hover:text-slate-300" />
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className={`text-sm font-medium ${
+                        isChecked ? "line-through text-slate-500" : "text-slate-200"
+                      }`}
+                    >
+                      {item.item}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1">
+                      {item.party && item.party !== "not_stated" && (
+                        <span>Party: <strong className="text-slate-300">{item.party}</strong></span>
+                      )}
+                      {item.dueOrTrigger && item.dueOrTrigger !== "not_stated" && (
+                        <span>Due: <strong className="text-amber-300 font-mono">{item.dueOrTrigger}</strong></span>
+                      )}
+                    </div>
+                    <EvidenceChips
+                      ids={item.anchorIds}
+                      resolvedAnchors={resolvedAnchors}
+                      onEvidenceClick={onEvidenceClick}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </section>
       )}
 
+      {/* Lawyer Questions */}
       {hasQuestions && (
-        <section aria-labelledby="questions-heading" style={{ marginTop: hasChecklist ? "1.5rem" : 0 }}>
-          <h2 id="questions-heading" className="action-pack-header">
-            <span aria-hidden="true">⚖️</span> Questions for a Lawyer
-          </h2>
-          {actionPack.lawyerQuestions.map((q, i) => (
-            <div key={i} className="card-elevated" style={{ marginBottom: "0.75rem" }}>
-              <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{q.question}</div>
-              <div className="text-sm text-muted">{q.reason}</div>
-              <EvidenceChips ids={q.anchorIds} resolvedAnchors={resolvedAnchors} onEvidenceClick={onEvidenceClick} />
-            </div>
-          ))}
+        <section aria-labelledby="questions-heading" className="space-y-3">
+          <h3 id="questions-heading" className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
+            Questions for Legal Counsel
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {actionPack.lawyerQuestions.map((q, i) => (
+              <div
+                key={i}
+                className="p-4 rounded-xl border border-white/10 bg-obsidian-900/60 backdrop-blur-xl space-y-2"
+              >
+                <div className="text-sm font-bold text-slate-100 leading-snug">
+                  {q.question}
+                </div>
+                <div className="text-xs text-slate-400 leading-relaxed">{q.reason}</div>
+                <EvidenceChips
+                  ids={q.anchorIds}
+                  resolvedAnchors={resolvedAnchors}
+                  onEvidenceClick={onEvidenceClick}
+                />
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </div>
@@ -400,19 +724,20 @@ export function ResultView({
   onEvidenceClick,
 }: ResultViewProps) {
   return (
-    <div>
+    <div className="space-y-6">
       {/* Fixed legal notice — always first */}
-      <div className="notice-banner mb-6" role="note" aria-label="Legal information notice">
-        <strong>Legal information only:</strong>{" "}
-        {LEGAL_NOTICE_TEXT}
+      <div
+        className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 backdrop-blur-xl text-xs text-slate-300 leading-relaxed"
+        role="note"
+        aria-label="Legal information notice"
+      >
+        <strong className="text-amber-400">Legal information only:</strong> {LEGAL_NOTICE_TEXT}
       </div>
 
-      {/* Verification badge */}
-      <div style={{ marginBottom: "1rem" }}>
-        <VerificationBadge verification={verification} />
-      </div>
+      {/* Verification Badge */}
+      <VerificationBadge verification={verification} />
 
-      {/* Mode result */}
+      {/* Mode View */}
       <section aria-label={`${mode} results`}>
         {mode === "simplify" && (
           <SimplifyView
@@ -444,14 +769,13 @@ export function ResultView({
         onEvidenceClick={onEvidenceClick}
       />
 
-      {/* Limitations reminder */}
+      {/* Limitations Reminder */}
       <div
-        className="text-xs text-muted"
-        style={{ marginTop: "2rem", padding: "0.75rem", borderTop: "1px solid var(--border-subtle)", lineHeight: 1.6 }}
+        className="p-4 rounded-xl border border-white/5 bg-white/[0.01] text-xs text-slate-500 leading-relaxed font-mono"
         role="note"
       >
-        <strong>Limitation:</strong> Important terms may have been missed. Absence from Clauseora
-        output never means absence from the document. Verify important points in the source.
+        <strong className="text-slate-400">Limitation:</strong> Absence from Clauseora output never
+        means absence from the document. Always verify critical terms against the original contract.
       </div>
     </div>
   );

@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  UploadCloud,
+  Trash2,
+  Sparkles,
+  FileCheck,
+} from "lucide-react";
 
 interface UploadZoneProps {
   label?: string;
@@ -9,6 +16,7 @@ interface UploadZoneProps {
   onFileChange: (file: File | null) => void;
   file: File | null;
   disabled?: boolean;
+  onLoadPreset?: (sampleId: string, filename: string) => Promise<void>;
 }
 
 export function UploadZone({
@@ -20,6 +28,7 @@ export function UploadZone({
   disabled,
 }: UploadZoneProps) {
   const [dragOver, setDragOver] = useState(false);
+  const [loadingPreset, setLoadingPreset] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = (e: React.DragEvent) => {
@@ -41,64 +50,150 @@ export function UploadZone({
     if (inputRef.current) inputRef.current.value = "";
   };
 
+  const loadSample = async (sampleId: string, filename: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (disabled) return;
+    setLoadingPreset(sampleId);
+    try {
+      const res = await fetch(`/api/sample?id=${sampleId}`);
+      if (!res.ok) throw new Error("Failed to fetch sample fixture");
+      const blob = await res.blob();
+      const sampleFile = new File([blob], filename, {
+        type: blob.type || (filename.endsWith(".pdf") ? "application/pdf" : "text/plain"),
+      });
+      onFileChange(sampleFile);
+    } catch (err) {
+      console.error("Failed to load sample:", err);
+    } finally {
+      setLoadingPreset(null);
+    }
+  };
+
   const zoneId = `upload-zone-${docKey}`;
   const inputId = `upload-input-${docKey}`;
 
   return (
-    <div>
+    <div className="w-full">
       {label && (
-        <div
-          className="text-sm font-600 mb-2"
-          style={{ fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.5rem" }}
-        >
-          {label}
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-semibold tracking-wider uppercase text-slate-400">
+            {label}
+          </span>
+          <span className="text-[11px] font-mono text-slate-500">
+            {docKey === "A" ? "Document A" : "Document B"}
+          </span>
         </div>
       )}
-      {/* Drag-and-drop zone (also clickable) */}
-      <div
+
+      {/* Main Drop Surface with spring motion */}
+      <motion.div
         id={zoneId}
-        className={`upload-zone${dragOver ? " drag-over" : ""}${file ? " has-file" : ""}`}
         role="group"
         aria-labelledby={`${zoneId}-label`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        whileHover={!disabled ? { scale: 1.006, transition: { duration: 0.2 } } : {}}
+        whileTap={!disabled ? { scale: 0.995 } : {}}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => !disabled && inputRef.current?.click()}
-        style={{ cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 }}
+        className={`relative overflow-hidden rounded-2xl border transition-all duration-300 cursor-pointer ${
+          disabled
+            ? "cursor-not-allowed opacity-50 bg-obsidian-950/40 border-white/5"
+            : dragOver
+            ? "border-cyan-400 bg-cyan-950/20 shadow-glow-cyan"
+            : file
+            ? "border-amber-500/40 bg-obsidian-900/80 shadow-glow-amber"
+            : "border-white/10 bg-obsidian-900/50 hover:border-white/20 hover:bg-obsidian-850/60"
+        } backdrop-blur-xl p-6 sm:p-8 min-h-[220px] flex flex-col items-center justify-center text-center`}
       >
-        <div className="upload-icon" aria-hidden="true">
-          {file ? "✓" : "⬆"}
-        </div>
+        {/* Subtle ambient gradient sheen */}
+        <div
+          className="pointer-events-none absolute -inset-px opacity-20 transition-opacity duration-300 group-hover:opacity-40"
+          style={{
+            background:
+              "radial-gradient(600px circle at var(--x, 50%) var(--y, 50%), rgba(245, 158, 11, 0.15), transparent 40%)",
+          }}
+        />
 
-        {file ? (
-          <div id={`${zoneId}-label`}>
-            <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
-              {file.name}
-            </div>
-            <div className="upload-hint">
-              {(file.size / 1024).toFixed(0)} KB
-            </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm mt-3"
-              onClick={handleRemove}
-              aria-label={`Remove ${file.name}`}
+        <AnimatePresence mode="wait">
+          {file ? (
+            /* Selected File State */
+            <motion.div
+              key="file-active"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex flex-col items-center w-full z-10"
+              id={`${zoneId}-label`}
             >
-              Remove file
-            </button>
-          </div>
-        ) : (
-          <div id={`${zoneId}-label`}>
-            <div style={{ fontWeight: 500, marginBottom: "0.25rem" }}>
-              Drop file here or click to browse
-            </div>
-            <div className="upload-hint">
-              PDF, DOCX, TXT · Max 8 MB · 150 pages · Text-layer only
-            </div>
-          </div>
-        )}
+              <div className="relative mb-3">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-glow-amber">
+                  <FileCheck className="w-7 h-7" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-500 text-obsidian-950 flex items-center justify-center text-[10px] font-bold">
+                  ✓
+                </div>
+              </div>
 
-        {/* Always-visible file input (a11y: keyboard users) */}
+              <div className="font-semibold text-slate-100 text-base max-w-[90%] truncate">
+                {file.name}
+              </div>
+
+              <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400">
+                <span className="font-mono">{(file.size / 1024).toFixed(1)} KB</span>
+                <span>•</span>
+                <span className="text-amber-400/90 font-medium">Ready for verification</span>
+              </div>
+
+              <div className="flex items-center gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-colors"
+                  aria-label={`Remove ${file.name}`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Remove
+                </button>
+                <label
+                  htmlFor={inputId}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
+                >
+                  Change file
+                </label>
+              </div>
+            </motion.div>
+          ) : (
+            /* Empty Upload State */
+            <motion.div
+              key="file-empty"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="flex flex-col items-center z-10"
+              id={`${zoneId}-label`}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 mb-3 group-hover:text-amber-400 group-hover:border-amber-400/30 transition-colors">
+                <UploadCloud className="w-7 h-7" />
+              </div>
+
+              <div className="text-sm font-semibold text-slate-200 mb-1">
+                Drop document here or{" "}
+                <span className="text-amber-400 underline underline-offset-2">browse</span>
+              </div>
+
+              <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+                PDF, DOCX, or TXT • Max 8 MB • 150 pages • 100% In-Memory
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Hidden Accessible Input */}
         <input
           ref={inputRef}
           id={inputId}
@@ -107,26 +202,48 @@ export function UploadZone({
           aria-label={label ?? "Upload document"}
           onChange={handleChange}
           disabled={disabled}
-          style={{
-            position: "absolute",
-            opacity: 0,
-            width: 1,
-            height: 1,
-            overflow: "hidden",
-          }}
+          className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0 overflow-hidden"
           tabIndex={-1}
         />
-      </div>
+      </motion.div>
 
-      {/* Accessible file input always reachable by keyboard */}
-      <label
-        htmlFor={inputId}
-        className="btn btn-ghost btn-sm mt-2"
-        style={{ display: "inline-flex", marginTop: "0.5rem" }}
-      >
-        <span aria-hidden="true">📎</span>
-        {file ? "Change file" : "Browse files"}
-      </label>
+      {/* 1-Click Agency Pre-loaded Fixture Bar */}
+      {!file && (
+        <div className="mt-2.5 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>Try synthetic demo:</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              disabled={disabled || !!loadingPreset}
+              onClick={(e) => loadSample("mutual-nda", "Mutual-NDA-Standard.txt", e)}
+              className="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-300 bg-white/5 hover:bg-amber-500/10 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 transition-all disabled:opacity-50"
+            >
+              {loadingPreset === "mutual-nda" ? "Loading..." : "Mutual NDA"}
+            </button>
+            <button
+              type="button"
+              disabled={disabled || !!loadingPreset}
+              onClick={(e) =>
+                loadSample(
+                  docKey === "B" ? "services-agreement-v2" : "services-agreement-v1",
+                  docKey === "B" ? "Services-Agreement-v2.txt" : "Services-Agreement-v1.txt",
+                  e
+                )
+              }
+              className="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-300 bg-white/5 hover:bg-cyan-500/10 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/30 transition-all disabled:opacity-50"
+            >
+              {loadingPreset?.startsWith("services")
+                ? "Loading..."
+                : docKey === "B"
+                ? "Services v2"
+                : "Services v1"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

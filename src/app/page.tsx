@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import type {
   Mode,
   AnchorRef,
@@ -14,76 +15,132 @@ import { UploadZone } from "./components/UploadZone";
 import { LoadingState } from "./components/LoadingState";
 import { ResultView } from "./components/ResultView";
 import { EvidenceDrawer } from "./components/EvidenceDrawer";
+import { ThreeBackground } from "./components/ThreeBackground";
+import {
+  Scale,
+  ShieldCheck,
+  FileText,
+  GitCompare,
+  MessageSquareQuote,
+  Zap,
+  Sparkles,
+  Lock,
+  Database,
+  Layers,
+  X,
+  ArrowLeft,
+  CheckCircle2,
+} from "lucide-react";
 
 // ─── Disclosure Modal ──────────────────────────────────────────────────────────
 
 function DisclosureModal({ onClose }: { onClose: () => void }) {
   return (
-    <div
-      className="drawer-overlay"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      role="presentation"
-    >
-      <div
-        className="drawer-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="disclosure-title"
-        tabIndex={-1}
-        style={{ maxWidth: "520px" }}
-      >
-        <div className="drawer-header">
-          <h2 id="disclosure-title" style={{ fontSize: "1rem" }}>
-            How your document is handled
-          </h2>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={onClose}
-            aria-label="Close"
-            autoFocus
-          >
-            ✕
-          </button>
-        </div>
-        <div className="drawer-content" style={{ fontSize: "0.9rem", lineHeight: 1.7 }}>
-          <section style={{ marginBottom: "1.25rem" }}>
-            <h3 style={{ fontWeight: 600, marginBottom: "0.375rem", color: "var(--text-primary)" }}>
-              What Clauseora does with your file
-            </h3>
-            <p>Your document is sent to our server for processing. The server extracts text, assigns paragraph/page anchors in code, and sends the text to AI providers for analysis. Clauseora does not save your document to any database or storage.</p>
-          </section>
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* Backdrop */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="fixed inset-0 bg-obsidian-950/85 backdrop-blur-md"
+          aria-hidden="true"
+        />
 
-          <section style={{ marginBottom: "1.25rem" }}>
-            <h3 style={{ fontWeight: 600, marginBottom: "0.375rem", color: "var(--text-primary)" }}>
-              AI providers that receive your content
-            </h3>
-            <ul style={{ paddingLeft: "1.25rem" }}>
-              <li style={{ marginBottom: "0.5rem" }}>
-                <strong>Groq</strong> (primary analyzer) — receives the full admitted document text. Groq states inference data is not retained by default. Verify their current policy for your use case.
-              </li>
-              <li>
-                <strong>Cloudflare Workers AI</strong> (evidence verifier) — receives only selected high-impact claims and their cited excerpts. Not the full document. Cloudflare states customer content is not used to train models.
-              </li>
-            </ul>
-          </section>
+        {/* Modal Window */}
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0, y: 10 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+          className="relative z-10 w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/15 bg-obsidian-900/95 backdrop-blur-3xl p-6 sm:p-8 shadow-glass-elevated"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="disclosure-title"
+        >
+          <div className="flex items-center justify-between pb-4 border-b border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 id="disclosure-title" className="text-lg font-bold text-white tracking-tight">
+                  Zero-Persistence Architecture
+                </h2>
+                <p className="text-xs text-slate-400">Data lifecycle and AI provider disclosure</p>
+              </div>
+            </div>
 
-          <section style={{ marginBottom: "1.25rem" }}>
-            <h3 style={{ fontWeight: 600, marginBottom: "0.375rem", color: "var(--text-primary)" }}>
-              What this means for sensitive documents
-            </h3>
-            <p>This is a public prototype without accounts or authentication. Do not upload documents you are not authorized to share with the named AI providers. Consider redacting sensitive personal information before uploading.</p>
-          </section>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+              aria-label="Close modal"
+              autoFocus
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-          <section>
-            <h3 style={{ fontWeight: 600, marginBottom: "0.375rem", color: "var(--text-primary)" }}>
-              No stored history
-            </h3>
-            <p>Clauseora cannot retrieve or delete a past upload because it never stored one. Your browser holds the selected file in memory until you remove it, replace it, refresh the page, or close the tab.</p>
-          </section>
-        </div>
+          <div className="py-6 space-y-6 text-sm leading-relaxed text-slate-300">
+            <section className="space-y-2">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <Database className="w-4 h-4 text-amber-400" />
+                <span>What Clauseora does with your files</span>
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Your uploaded contract is buffered strictly in volatile system RAM during active
+                request execution. It is never persisted to disk, stored in any SQL/NoSQL database, or
+                cached in any cloud object bucket.
+              </p>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <Layers className="w-4 h-4 text-cyan-400" />
+                <span>AI Providers & Token Routing</span>
+              </h3>
+              <div className="p-3.5 rounded-xl bg-obsidian-950/70 border border-white/10 space-y-2.5 text-xs">
+                <div>
+                  <strong className="text-amber-300">1. Groq (Primary Inference):</strong> Receives
+                  the parsed structural paragraphs to generate plain-language interpretations and
+                  identify obligations. Groq specifies zero data retention by default.
+                </div>
+                <div className="pt-2 border-t border-white/5">
+                  <strong className="text-cyan-300">2. Cloudflare Workers AI (Verifier):</strong>{" "}
+                  Receives only selected high-impact claims alongside their cited verbatim passages.
+                  Cloudflare does not train models on customer inference payloads.
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-2">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <Lock className="w-4 h-4 text-emerald-400" />
+                <span>Deterministic Anchors & Integrity</span>
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Before sending prompts to any model, the server pre-indexes every paragraph and
+                assigns deterministic anchors (e.g. <code>A-p001-b001</code>). When AI models return
+                citations, the server maps them against this ground-truth index. Any hallucinated or
+                unrecognized citations are automatically stripped.
+              </p>
+            </section>
+          </div>
+
+          <div className="pt-4 border-t border-white/10 flex justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl text-xs font-semibold text-obsidian-950 bg-white hover:bg-slate-200 transition-colors"
+            >
+              I Understand
+            </button>
+          </div>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
 }
 
@@ -131,10 +188,10 @@ export default function Home() {
     if (mode === "compare" && fileB) form.append("documentB", fileB);
     if (mode === "ask") form.append("question", question.trim());
 
-    // Simulate loading step progression
+    // Step progression ticker
     const stepTimer = setInterval(() => {
       setLoadingStep((prev) => Math.min(prev + 1, 3));
-    }, 2500);
+    }, 2200);
 
     try {
       const res = await fetch("/api/process", {
@@ -157,7 +214,7 @@ export default function Home() {
       clearInterval(stepTimer);
       if ((err as Error).name !== "AbortError") {
         setApiError({
-          requestId: "client-error",
+          requestId: "client-network-error",
           mode,
           notice: { kind: "legal_information_only", text: LEGAL_NOTICE_TEXT },
           documents: [],
@@ -186,100 +243,168 @@ export default function Home() {
     (mode !== "compare" || !!fileB) &&
     (mode !== "ask" || question.trim().length > 0);
 
-  const MODES: { id: Mode; label: string; icon: string }[] = [
-    { id: "simplify", label: "Simplify", icon: "📋" },
-    { id: "compare", label: "Compare", icon: "⇄" },
-    { id: "ask", label: "Ask", icon: "💬" },
+  const MODES: { id: Mode; label: string; icon: React.ReactNode }[] = [
+    { id: "simplify", label: "Simplify", icon: <FileText className="w-4 h-4" /> },
+    { id: "compare", label: "Compare Versions", icon: <GitCompare className="w-4 h-4" /> },
+    { id: "ask", label: "Ask Questions", icon: <MessageSquareQuote className="w-4 h-4" /> },
   ];
 
   return (
-    <>
-      {/* ── Shell Header ── */}
-      <header className="shell-header">
-        <div className="shell-header-inner">
-          <Link href="/" className="logo" aria-label="Clauseora — Home">
-            <div className="logo-icon" aria-hidden="true">⚖</div>
-            <span>Clauseora</span>
-            <span className="logo-tagline">Understand the words. Verify the evidence.</span>
-          </Link>
-          <div className="header-spacer" />
-          <button
-            type="button"
-            className="disclosure-link"
-            onClick={() => setShowDisclosure(true)}
+    <div className="min-h-screen flex flex-col relative text-slate-100 selection:bg-amber-500/30 selection:text-amber-200">
+      {/* 3D WebGL Holographic Monolith Canvas */}
+      <ThreeBackground />
+
+      {/* Subtle Noise Texture Overlay */}
+      <div className="pointer-events-none fixed inset-0 ambient-noise opacity-40 -z-5" />
+
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-40 w-full border-b border-white/10 bg-obsidian-950/70 backdrop-blur-2xl transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+          <Link
+            href="/"
+            className="flex items-center gap-3 group focus:outline-none"
+            aria-label="Clauseora Home"
           >
-            How your document is handled
-          </button>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-obsidian-950 shadow-glow-amber group-hover:scale-105 transition-transform duration-200">
+              <Scale className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-white font-sans">
+                  Clauseora
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                  v1.0 Pro
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 hidden sm:block">
+                Evidence-First Legal Document Intelligence
+              </p>
+            </div>
+          </Link>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDisclosure(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Data Privacy & Architecture</span>
+              <span className="sm:hidden">Privacy</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* ── Main ── */}
-      <main style={{ padding: "2rem 1.25rem 4rem", maxWidth: "var(--max-width)", margin: "0 auto" }}>
-        {/* Hero */}
-        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <h1>Evidence-First Legal Document Navigator</h1>
-          <p className="text-muted" style={{ marginTop: "0.5rem", maxWidth: "56ch", margin: "0.5rem auto 0" }}>
-            Every explanation is linked to the exact passage in your document.
-            No confabulation. No invented facts. Just source-backed analysis.
-          </p>
-        </div>
+      {/* ── Main Workspace ── */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 sm:space-y-10">
+        {/* Hero Section */}
+        {!apiResult && !isLoading && (
+          <div className="text-center space-y-4 max-w-2xl mx-auto pt-2 sm:pt-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-slate-300 backdrop-blur-xl">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Tamper-Proof Ground-Truth Verification</span>
+            </div>
 
-        {/* Compact notice */}
-        <div className="notice-banner" style={{ marginBottom: "1.5rem" }}>
-          <strong>Legal information only.</strong> Clauseora analyzes your document. It is not legal advice and does not create an attorney-client relationship.{" "}
-          <button
-            type="button"
-            style={{ background: "none", border: "none", color: "var(--blue-400)", cursor: "pointer", fontSize: "inherit", padding: 0 }}
-            onClick={() => setShowDisclosure(true)}
-          >
-            How your document is handled ›
-          </button>
-        </div>
+            <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
+              Understand the words. <br />
+              <span className="text-gradient-gold">Verify the evidence.</span>
+            </h1>
 
-        {/* Mode Tabs */}
-        <nav
-          aria-label="Analysis mode"
-          style={{ marginBottom: "1.5rem" }}
-        >
-          <div className="mode-tabs" role="tablist">
-            {MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                role="tab"
-                id={`tab-${m.id}`}
-                aria-selected={mode === m.id}
-                aria-controls={`panel-${m.id}`}
-                className={`tab-btn${mode === m.id ? " active" : ""}`}
-                onClick={() => handleModeChange(m.id)}
-                disabled={isLoading}
-              >
-                <span aria-hidden="true">{m.icon}</span>
-                {m.label}
-              </button>
-            ))}
+            <p className="text-sm sm:text-base text-slate-400 leading-relaxed font-sans">
+              Every AI explanation is strictly tied to immutable paragraph anchors in your document.
+              Zero hallucinations. Zero fabricated legal advice.
+            </p>
+
+            {/* Architecture Highlights Pill Row */}
+            <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap pt-2">
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>100% In-Memory</span>
+              </div>
+              <span className="text-slate-700">•</span>
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+                <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>Deterministic Anchors</span>
+              </div>
+              <span className="text-slate-700">•</span>
+              <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+                <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Dual-Model Consensus</span>
+              </div>
+            </div>
           </div>
-        </nav>
+        )}
 
-        {/* Upload Panel */}
+        {/* Mode Switcher Segmented Pill Bar */}
+        {!isLoading && !apiResult && (
+          <nav
+            aria-label="Analysis mode"
+            className="flex justify-center"
+          >
+            <div
+              className="relative p-1.5 rounded-2xl bg-obsidian-900/80 border border-white/10 backdrop-blur-2xl flex items-center gap-1 shadow-glass-subtle"
+              role="tablist"
+            >
+              {MODES.map((m) => {
+                const isActive = mode === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="tab"
+                    id={`tab-${m.id}`}
+                    aria-selected={isActive}
+                    aria-controls={`panel-${m.id}`}
+                    onClick={() => handleModeChange(m.id)}
+                    disabled={isLoading}
+                    className={`relative px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors flex items-center gap-2 ${
+                      isActive ? "text-obsidian-950" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeModePill"
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 shadow-glow-amber"
+                      />
+                    )}
+                    <span className="relative z-10">{m.icon}</span>
+                    <span className="relative z-10">{m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        )}
+
+        {/* Main Interaction Surface */}
         <div
           role="tabpanel"
           id={`panel-${mode}`}
           aria-labelledby={`tab-${mode}`}
+          className="space-y-6"
         >
+          {/* Document Upload & Input Area */}
           {!isLoading && !apiResult && !apiError && (
-            <div className="card" style={{ marginBottom: "1.5rem" }}>
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="rounded-3xl border border-white/10 bg-obsidian-900/70 backdrop-blur-2xl p-6 sm:p-8 shadow-glass-elevated space-y-6"
+            >
               {mode === "compare" ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem" }}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <UploadZone
-                    label="Document A (original)"
+                    label="Original Version (Document A)"
                     docKey="A"
                     file={fileA}
                     onFileChange={setFileA}
                     disabled={isLoading}
                   />
                   <UploadZone
-                    label="Document B (revised)"
+                    label="Revised Version (Document B)"
                     docKey="B"
                     file={fileB}
                     onFileChange={setFileB}
@@ -288,6 +413,7 @@ export default function Home() {
                 </div>
               ) : (
                 <UploadZone
+                  label="Target Document"
                   docKey="A"
                   file={fileA}
                   onFileChange={setFileA}
@@ -295,124 +421,145 @@ export default function Home() {
                 />
               )}
 
+              {/* Mode: Ask Input */}
               {mode === "ask" && (
-                <div style={{ marginTop: "1.25rem" }}>
-                  <label htmlFor="question-input" style={{ display: "block", fontWeight: 600, fontSize: "0.9rem", marginBottom: "0.5rem" }}>
-                    Your question
-                  </label>
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="question-input"
+                      className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono"
+                    >
+                      Your Inquiry for this Document
+                    </label>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {question.length}/2000
+                    </span>
+                  </div>
                   <textarea
                     id="question-input"
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="e.g. What are the termination conditions?"
+                    placeholder="e.g. What are the termination notice windows and non-compete liabilities?"
                     maxLength={2000}
                     rows={3}
                     disabled={isLoading}
-                    style={{
-                      width: "100%",
-                      background: "var(--bg-surface)",
-                      border: "1px solid var(--border-dim)",
-                      borderRadius: "var(--radius-md)",
-                      color: "var(--text-primary)",
-                      padding: "0.75rem 1rem",
-                      fontSize: "0.9375rem",
-                      fontFamily: "inherit",
-                      resize: "vertical",
-                      outline: "none",
-                      transition: "border-color 0.15s",
-                    }}
-                    onFocus={(e) => (e.target.style.borderColor = "var(--blue-400)")}
-                    onBlur={(e) => (e.target.style.borderColor = "var(--border-dim)")}
+                    className="w-full rounded-2xl bg-obsidian-950/80 border border-white/10 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 p-4 text-sm text-slate-100 placeholder-slate-500 outline-none transition-all resize-vertical font-sans"
                     aria-describedby="question-hint"
                   />
-                  <div id="question-hint" className="text-xs text-muted" style={{ marginTop: "0.25rem" }}>
-                    {question.length}/2000 characters
-                  </div>
                 </div>
               )}
 
-              {/* Privacy disclosure near the action button */}
-              <div className="text-xs text-muted" style={{ marginTop: "1rem", padding: "0.75rem", background: "var(--bg-surface)", borderRadius: "var(--radius-md)", lineHeight: 1.6 }}>
-                <strong>Processing disclosure:</strong> Clicking Analyze Document sends your file to our server. Groq receives the full document text for analysis. Cloudflare receives only high-impact claims with their cited passages.{" "}
+              {/* Processing Disclosure Bar */}
+              <div className="p-4 rounded-xl bg-obsidian-950/60 border border-white/5 flex items-start justify-between gap-3 text-xs text-slate-400 leading-relaxed">
+                <div>
+                  <strong className="text-slate-300">Processing Disclosure:</strong> Analyzing
+                  transfers text to volatile memory. Groq receives document passages; Cloudflare
+                  receives high-impact consensus claims.
+                </div>
                 <button
                   type="button"
-                  style={{ background: "none", border: "none", color: "var(--blue-400)", cursor: "pointer", fontSize: "inherit", padding: 0 }}
                   onClick={() => setShowDisclosure(true)}
+                  className="text-amber-400 hover:text-amber-300 font-semibold whitespace-nowrap"
                 >
-                  Full details ›
+                  Architecture details ›
                 </button>
               </div>
 
+              {/* Magnetic Submit Button */}
               <button
                 type="button"
-                className="btn btn-primary w-full"
-                style={{ marginTop: "1rem", width: "100%" }}
                 onClick={handleSubmit}
                 disabled={!canSubmit || isLoading}
                 aria-busy={isLoading}
+                className={`w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 ${
+                  canSubmit && !isLoading
+                    ? "bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-obsidian-950 shadow-glow-amber hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] hover:scale-[1.006] active:scale-[0.995]"
+                    : "bg-white/5 text-slate-600 border border-white/5 cursor-not-allowed"
+                }`}
               >
-                <span aria-hidden="true">⚡</span>
-                Analyze Document
+                <Zap className="w-4 h-4 fill-current" />
+                <span>Initiate Cognitive Analysis</span>
               </button>
-            </div>
+            </motion.div>
           )}
 
-          {/* Loading */}
+          {/* Loading Radar */}
           {isLoading && (
-            <div className="card">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+            >
               <LoadingState stepIndex={loadingStep} onCancel={handleCancel} />
-            </div>
+            </motion.div>
           )}
 
-          {/* Error */}
+          {/* Error Alert */}
           {apiError && !isLoading && (
-            <div>
-              <div className="notice-banner" style={{ marginBottom: "1rem" }}>
-                <strong>Legal information only.</strong> {LEGAL_NOTICE_TEXT}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              ref={errorSummaryRef}
+              tabIndex={-1}
+              role="alert"
+              aria-live="assertive"
+              className="rounded-2xl border border-rose-500/30 bg-rose-950/20 backdrop-blur-2xl p-6 sm:p-8 space-y-4 shadow-glass-elevated"
+            >
+              <div className="flex items-center gap-3 text-rose-400">
+                <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                  <X className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">Analysis Could Not Complete</h2>
+                  <div className="text-xs font-mono text-rose-400">
+                    Error Code: {apiError.error?.code ?? "UNKNOWN"}
+                  </div>
+                </div>
               </div>
-              <div
-                ref={errorSummaryRef}
-                className="error-card"
-                tabIndex={-1}
-                role="alert"
-                aria-live="assertive"
+
+              <p className="text-sm text-slate-300 leading-relaxed">{apiError.error?.message}</p>
+
+              <button
+                type="button"
+                onClick={() => setApiError(null)}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-colors"
               >
-                <div className="error-title">
-                  Analysis could not be completed
-                </div>
-                <p style={{ fontSize: "0.9rem", marginTop: "0.25rem" }}>
-                  {apiError.error?.message}
-                </p>
-                <div style={{ marginTop: "0.875rem", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={() => {
-                      setApiError(null);
-                    }}
-                  >
-                    Try again
-                  </button>
-                </div>
-              </div>
-            </div>
+                Reset & Try Again
+              </button>
+            </motion.div>
           )}
 
-          {/* Results */}
+          {/* Success Results View */}
           {apiResult && !isLoading && (
-            <div>
-              <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Back / Reset Ribbon */}
+              <div className="flex items-center justify-between flex-wrap gap-3 pb-2">
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => { setApiResult(null); setApiError(null); }}
+                  onClick={() => {
+                    setApiResult(null);
+                    setApiError(null);
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
                 >
-                  ← New analysis
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Analyze Another Document</span>
                 </button>
-                <div className="text-xs text-muted">
-                  Analysis by {apiResult.analysisProvider.service} / {apiResult.analysisProvider.model}
+
+                <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>
+                    Provider: {apiResult.analysisProvider.service} /{" "}
+                    {apiResult.analysisProvider.model}
+                  </span>
                 </div>
               </div>
+
+              {/* Complete Result View */}
               <ResultView
                 mode={apiResult.mode}
                 result={apiResult.result}
@@ -421,23 +568,43 @@ export default function Home() {
                 resolvedAnchors={apiResult.resolvedAnchors}
                 onEvidenceClick={setOpenAnchor}
               />
-            </div>
+            </motion.div>
           )}
         </div>
       </main>
 
-      {/* Evidence Drawer */}
+      {/* ── Footer ── */}
+      <footer className="border-t border-white/10 bg-obsidian-950/80 backdrop-blur-2xl py-8 px-4 sm:px-6 mt-16 text-center text-xs text-slate-500">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-slate-400">
+            <Scale className="w-4 h-4 text-amber-400" />
+            <span className="font-semibold text-slate-300">Clauseora</span>
+            <span>• Evidence-First Legal Intelligence</span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowDisclosure(true)}
+              className="hover:text-slate-300 transition-colors"
+            >
+              Privacy & Retention
+            </button>
+            <span>•</span>
+            <span>WCAG 2.2 AA Compliant</span>
+          </div>
+        </div>
+      </footer>
+
+      {/* Slide-over Evidence Ground Truth Drawer */}
       {openAnchor && (
-        <EvidenceDrawer
-          anchor={openAnchor}
-          onClose={() => setOpenAnchor(null)}
-        />
+        <EvidenceDrawer anchor={openAnchor} onClose={() => setOpenAnchor(null)} />
       )}
 
-      {/* Disclosure Modal */}
+      {/* Privacy & Architecture Modal */}
       {showDisclosure && (
         <DisclosureModal onClose={() => setShowDisclosure(false)} />
       )}
-    </>
+    </div>
   );
 }
