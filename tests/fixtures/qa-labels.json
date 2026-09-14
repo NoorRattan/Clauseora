@@ -1,0 +1,162 @@
+[
+  {
+    "id": "QA-001",
+    "document": "mutual-nda.txt",
+    "question": "What is the term of this Non-Disclosure Agreement?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Term is explicitly defined in Section 4 as two (2) years from the effective date."
+  },
+  {
+    "id": "QA-002",
+    "document": "mutual-nda.txt",
+    "question": "What happens if confidential information is requested by a court subpoena?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 3 explicitly allows disclosure required by legal process with prompt written notice."
+  },
+  {
+    "id": "QA-003",
+    "document": "mutual-nda.txt",
+    "question": "Does this NDA contain a non-solicitation or non-compete clause for employees?",
+    "expectedStatus": "not_found",
+    "expectedAnchorPatterns": [],
+    "rationale": "The NDA exclusively governs proprietary and confidential information; non-compete is absent."
+  },
+  {
+    "id": "QA-004",
+    "document": "mutual-nda.txt",
+    "question": "Which state's law governs the agreement?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 7 specifies the laws of the State of Delaware."
+  },
+  {
+    "id": "QA-005",
+    "document": "mutual-nda.txt",
+    "question": "What is the monetary penalty for breach of confidentiality?",
+    "expectedStatus": "not_found",
+    "expectedAnchorPatterns": [],
+    "rationale": "The agreement provides for injunctive relief and remedies at law, but specifies no liquidated damages or fixed monetary penalty."
+  },
+  {
+    "id": "QA-006",
+    "document": "mutual-nda.txt",
+    "question": "How must the receiving party handle confidential materials upon termination?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 5 specifies prompt return or certified destruction upon written request."
+  },
+  {
+    "id": "QA-007",
+    "document": "mutual-nda.txt",
+    "question": "Are trade secrets protected beyond the standard two-year confidentiality term?",
+    "expectedStatus": "partially_supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "The agreement defines confidential information broadly but does not explicitly delineate perpetual trade secret survival beyond the general term."
+  },
+  {
+    "id": "QA-008",
+    "document": "residential-lease.pdf",
+    "question": "What is the monthly rent amount and when is it due?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 1 specifies rent of $1,850 per month due on the first day of each calendar month."
+  },
+  {
+    "id": "QA-009",
+    "document": "residential-lease.pdf",
+    "question": "What is the required security deposit amount?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 2 specifies a security deposit of $1,850."
+  },
+  {
+    "id": "QA-010",
+    "document": "residential-lease.pdf",
+    "question": "Are pets permitted in the apartment?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 5 states pets are strictly prohibited without prior written consent and pet deposit."
+  },
+  {
+    "id": "QA-011",
+    "document": "residential-lease.pdf",
+    "question": "How much notice must the landlord give before entering the apartment?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 4 specifies 24 hours notice for maintenance entry."
+  },
+  {
+    "id": "QA-012",
+    "document": "residential-lease.pdf",
+    "question": "Is the tenant permitted to sublet the apartment or assign the lease?",
+    "expectedStatus": "not_found",
+    "expectedAnchorPatterns": [],
+    "rationale": "The synthetic residential lease contains no sublease, assignment, or Airbnb clause."
+  },
+  {
+    "id": "QA-013",
+    "document": "residential-lease.pdf",
+    "question": "How many days notice must the tenant give before moving out?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 3 requires 60 days written notice prior to vacating the premises."
+  },
+  {
+    "id": "QA-014",
+    "document": "residential-lease.pdf",
+    "question": "Who pays for electricity, water, and internet utilities?",
+    "expectedStatus": "not_found",
+    "expectedAnchorPatterns": [],
+    "rationale": "Utilities responsibility is unstated in the synthetic lease agreement."
+  },
+  {
+    "id": "QA-015",
+    "document": "services-agreement.docx",
+    "question": "What is the payment terms window for client invoices?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 2 specifies payment within thirty (30) days from receipt."
+  },
+  {
+    "id": "QA-016",
+    "document": "services-agreement.docx",
+    "question": "How can either party terminate the agreement without cause?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 3 allows termination without cause upon sixty (60) days prior written notice."
+  },
+  {
+    "id": "QA-017",
+    "document": "services-agreement.docx",
+    "question": "What is the overall limitation of liability under the contract?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 4 caps aggregate liability at total fees paid during preceding twelve (12) months."
+  },
+  {
+    "id": "QA-018",
+    "document": "services-agreement.docx",
+    "question": "Are there specific service level agreement (SLA) uptime guarantees?",
+    "expectedStatus": "not_found",
+    "expectedAnchorPatterns": [],
+    "rationale": "The agreement references general maintenance services but does not contain uptime or SLA percentage commitments."
+  },
+  {
+    "id": "QA-019",
+    "document": "services-agreement.docx",
+    "question": "Does Provider own intellectual property created under the Statement of Work?",
+    "expectedStatus": "partially_supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "The document defines scope of software consulting in Section 1, but lacks an express IP assignment/work-for-hire clause."
+  },
+  {
+    "id": "QA-020",
+    "document": "services-agreement.docx",
+    "question": "What governing law applies to disputes?",
+    "expectedStatus": "supported",
+    "expectedAnchorPatterns": ["A-"],
+    "rationale": "Section 5 specifies the laws of the State of Delaware."
+  }
+]

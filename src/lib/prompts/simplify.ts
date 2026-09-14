@@ -59,3 +59,12 @@ OUTPUT FORMAT — respond with a single JSON object:
 
 Omit checklist items or lawyer questions for which you have no grounded evidence. Do NOT fabricate content to fill minimum counts.`;
 }
+
+export {
+  simplifyResponseSchema,
+  clauseCardSchema,
+  clauseItemSchema,
+  definedTermSchema,
+  actionPackSchema,
+} from "@/lib/schemas";
+

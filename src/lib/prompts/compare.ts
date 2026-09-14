@@ -55,3 +55,9 @@ OUTPUT FORMAT — respond with a single JSON object:
 
 An empty "changes" array is valid if no substantive changes are found. Do not report formatting-only differences.`;
 }
+
+export {
+  compareResponseSchema,
+  changeItemSchema,
+} from "@/lib/schemas";
+

@@ -133,6 +133,9 @@ export type Verification = {
 export const LEGAL_NOTICE_TEXT =
   "Clauseora provides information about the document you upload. Its AI-generated output may be wrong, incomplete, or miss important terms. It is not legal advice, does not create an attorney-client relationship, and is not a substitute for a qualified legal professional. Verify important points in the source document.";
 
+export const NOT_FOUND_ABSTENTION_TEXT =
+  "This information is not stated in the document you uploaded. Clauseora can only answer questions based on the content of the uploaded document.";
+
 export type DocumentMeta = {
   key: "A" | "B";
   displayName: string;

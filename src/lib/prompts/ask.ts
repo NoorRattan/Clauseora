@@ -48,3 +48,9 @@ OUTPUT FORMAT — respond with a single JSON object:
 If the question is completely unanswerable from the document, return:
 { "result": { "status": "not_found", "answer": "", "notEstablished": [], "anchorIds": [] }, "actionPack": { "checklist": [], "lawyerQuestions": [] } }`;
 }
+
+export {
+  askResponseSchema,
+  askCitationSchema,
+} from "@/lib/schemas";
+

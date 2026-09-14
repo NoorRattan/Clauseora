@@ -29,8 +29,18 @@ const ALLOWED_EXTENSIONS: Record<string, string[]> = {
 const MAGIC: Record<string, number[][]> = {
   pdf: [[0x25, 0x50, 0x44, 0x46]], // %PDF
   docx: [[0x50, 0x4b, 0x03, 0x04]], // PK (ZIP)
-  txt: [], // No reliable magic; checked by UTF-8 parse attempt
+  txt: [], // No reliable magic; checked by cross-type detection below
 };
+
+// Cross-type magic: if buffer starts with these bytes, it cannot be txt
+const FORBIDDEN_IN_TXT: Array<{ magic: number[]; label: string }> = [
+  { magic: [0x25, 0x50, 0x44, 0x46], label: "PDF" },  // %PDF
+  { magic: [0x50, 0x4b, 0x03, 0x04], label: "ZIP/DOCX" }, // PK
+  { magic: [0x50, 0x4b, 0x05, 0x06], label: "ZIP/DOCX" }, // PK empty
+  { magic: [0xd0, 0xcf, 0x11, 0xe0], label: "OLE" }, // Old DOC
+  { magic: [0xff, 0xd8, 0xff], label: "JPEG" },
+  { magic: [0x89, 0x50, 0x4e, 0x47], label: "PNG" },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -104,14 +114,16 @@ export function validateRequest(formData: FormData): ValidationResult {
     if (typeof q !== "string") {
       return err("INVALID_REQUEST", "question is required for Ask mode.");
     }
-    const trimmed = q.trim();
-    if (trimmed.length < MIN_QUESTION_CHARS) {
-      return err("INVALID_REQUEST", "question must not be empty.");
+    const qCheck = validateQuestion(q);
+    if (!qCheck.valid) {
+      return err(
+        qCheck.code || "INVALID_REQUEST",
+        q.trim().length === 0
+          ? "question must not be empty."
+          : `question must be at most ${MAX_QUESTION_CHARS} characters.`
+      );
     }
-    if (trimmed.length > MAX_QUESTION_CHARS) {
-      return err("INVALID_REQUEST", `question must be at most ${MAX_QUESTION_CHARS} characters.`);
-    }
-    question = trimmed;
+    question = qCheck.sanitized;
   }
 
   return {
@@ -181,7 +193,7 @@ export function verifySignature(
     // Not a hard failure here — signature check below is authoritative
   }
 
-  // Magic bytes
+  // Magic bytes — check that buffer starts with the expected signature
   const magics = MAGIC[extension];
   if (magics.length > 0) {
     const matches = magics.some((magic) =>
@@ -195,6 +207,21 @@ export function verifySignature(
           message: `File content does not match the declared type (${extension.toUpperCase()}).`,
         },
       };
+    }
+  }
+
+  // Cross-type detection for TXT: reject binary formats masquerading as text
+  if (extension === "txt") {
+    for (const { magic, label } of FORBIDDEN_IN_TXT) {
+      if (magic.every((byte, i) => buffer[i] === byte)) {
+        return {
+          ok: false,
+          error: {
+            code: "TYPE_MISMATCH",
+            message: `File appears to be a ${label} file, not a plain text document. Please upload a .txt file.`,
+          },
+        };
+      }
     }
   }
 
@@ -212,3 +239,20 @@ export function sanitizeDisplayName(name: string): string {
 function err(code: ErrorCode, message: string): { ok: false; error: ValidationError } {
   return { ok: false, error: { code, message } };
 }
+
+/** Validate standalone question string for Ask mode */
+export function validateQuestion(question: string): {
+  valid: boolean;
+  code?: ErrorCode;
+  sanitized?: string;
+} {
+  const trimmed = question.trim();
+  if (trimmed.length < MIN_QUESTION_CHARS) {
+    return { valid: false, code: "INVALID_REQUEST" };
+  }
+  if (trimmed.length > MAX_QUESTION_CHARS) {
+    return { valid: false, code: "INVALID_REQUEST" };
+  }
+  return { valid: true, sanitized: trimmed };
+}
+

@@ -1,0 +1,63 @@
+SERVICE AGREEMENT — VERSION A (ORIGINAL)
+
+This Service Agreement (the "Agreement") is entered into as of January 1, 2024, between:
+
+TechCorp Solutions LLC ("Service Provider"), a Delaware limited liability company, and Retail Dynamics Inc. ("Client"), a New York corporation.
+
+1. SERVICES
+
+Service Provider agrees to provide software development and consulting services as described in Statement of Work No. 1, attached hereto and incorporated by reference.
+
+Service Provider shall not subcontract any portion of the work without prior written consent of the Client.
+
+2. PAYMENT TERMS
+
+Client shall pay Service Provider a monthly retainer of $8,000 per month, payable within thirty (30) days of the first day of each month.
+
+Late payments shall accrue interest at a rate of 1.5% per month.
+
+3. TERM AND TERMINATION
+
+This Agreement commences on January 1, 2024 and continues for a period of two (2) years unless earlier terminated.
+
+Either party may terminate this Agreement for convenience upon thirty (30) days prior written notice.
+
+Either party may terminate immediately for cause upon written notice if the other party commits a material breach and fails to cure such breach within fifteen (15) days of receiving written notice thereof.
+
+4. INTELLECTUAL PROPERTY
+
+All work product, inventions, software, designs, and deliverables created by Service Provider in the performance of Services under this Agreement shall be the exclusive property of Client upon creation.
+
+Service Provider retains a non-exclusive, royalty-free license to use generalized methodologies and know-how developed during the engagement.
+
+5. LIMITATION OF LIABILITY
+
+Neither party shall be liable to the other for indirect, incidental, special, or consequential damages.
+
+The total liability of either party under this Agreement shall not exceed one (1) times the fees paid in the twelve (12) months preceding the claim.
+
+6. INDEMNIFICATION
+
+Each party shall indemnify and hold harmless the other party from claims arising from its own gross negligence or willful misconduct.
+
+7. GOVERNING LAW
+
+This Agreement shall be governed by the laws of the State of Delaware.
+
+8. ENTIRE AGREEMENT
+
+This Agreement, together with all Statements of Work, constitutes the entire agreement between the parties and supersedes all prior negotiations, representations, or agreements.
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the date first set forth above.
+
+TECHCORP SOLUTIONS LLC
+
+By: _______________________
+Name: Sarah Lee
+Title: Chief Executive Officer
+
+RETAIL DYNAMICS INC.
+
+By: _______________________
+Name: Michael Brown
+Title: President

@@ -31,60 +31,79 @@ export async function extractPdf(
   document: "A" | "B"
 ): Promise<PdfExtractionResult> {
   // Dynamically import pdf-parse (CJS module) to keep this tree-shakeable
-  let pdfParse: (buffer: Buffer, options?: object) => Promise<{
-    numpages: number;
-    text: string;
-    // pdf-parse provides per-page text via a render callback
-  }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let pdfModule: any;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    pdfParse = require("pdf-parse");
+    pdfModule = require("pdf-parse");
   } catch {
     return { ok: false, error: "CORRUPT_DOCUMENT" };
   }
 
-  // Per-page text accumulation using pdf-parse's pagerender option
+  // Per-page text accumulation
   const pageTexts: string[] = [];
+  let numpages = 0;
 
-  const options = {
-    // Render each page separately so we can attach page locators
-    pagerender: (pageData: {
-      getTextContent: () => Promise<{
-        items: Array<{ str: string; hasEOL?: boolean }>;
-      }>;
-    }) => {
-      return pageData.getTextContent().then(
-        (tc: { items: Array<{ str: string; hasEOL?: boolean }> }) => {
-          const lines: string[] = [];
-          let line = "";
-          for (const item of tc.items) {
-            line += item.str;
-            if (item.hasEOL) {
-              lines.push(line);
-              line = "";
-            }
-          }
-          if (line.trim()) lines.push(line);
-          pageTexts.push(lines.join("\n"));
-          return lines.join("\n");
-        }
-      );
-    },
-    max: PDF_MAX_PAGES + 1, // +1 so we can detect over-limit
-  };
-
-  let parsed: { numpages: number; text: string };
   try {
-    parsed = await pdfParse(buffer, options);
+    if (pdfModule.PDFParse) {
+      const parser = new pdfModule.PDFParse({ data: buffer });
+      const result = await parser.getText();
+      numpages = result.total || result.pages?.length || 1;
+      if (numpages > PDF_MAX_PAGES) {
+        return { ok: false, error: "DOCUMENT_TOO_LONG" };
+      }
+      if (Array.isArray(result.pages)) {
+        for (const p of result.pages) {
+          pageTexts.push(p.text || "");
+        }
+      } else if (result.text) {
+        pageTexts.push(result.text);
+      }
+    } else if (typeof pdfModule === "function" || typeof pdfModule.default === "function") {
+      const fn = typeof pdfModule === "function" ? pdfModule : pdfModule.default;
+      const options = {
+        pagerender: (pageData: {
+          getTextContent: () => Promise<{
+            items: Array<{ str: string; hasEOL?: boolean }>;
+          }>;
+        }) => {
+          return pageData.getTextContent().then(
+            (tc: { items: Array<{ str: string; hasEOL?: boolean }> }) => {
+              const lines: string[] = [];
+              let line = "";
+              for (const item of tc.items) {
+                line += item.str;
+                if (item.hasEOL) {
+                  lines.push(line);
+                  line = "";
+                }
+              }
+              if (line.trim()) lines.push(line);
+              pageTexts.push(lines.join("\n"));
+              return lines.join("\n");
+            }
+          );
+        },
+        max: PDF_MAX_PAGES + 1,
+      };
+      const parsed = await fn(buffer, options);
+      numpages = parsed.numpages;
+    } else {
+      return { ok: false, error: "CORRUPT_DOCUMENT" };
+    }
   } catch (err: unknown) {
     const msg = String(err);
-    if (msg.includes("encrypt") || msg.includes("password")) {
+    if (
+      (pdfModule.PasswordException && err instanceof pdfModule.PasswordException) ||
+      msg.toLowerCase().includes("encrypt") ||
+      msg.toLowerCase().includes("password")
+    ) {
       return { ok: false, error: "ENCRYPTED_DOCUMENT" };
     }
     return { ok: false, error: "CORRUPT_DOCUMENT" };
   }
 
-  if (parsed.numpages > PDF_MAX_PAGES) {
+  if (numpages > PDF_MAX_PAGES) {
     return { ok: false, error: "DOCUMENT_TOO_LONG" };
   }
 
@@ -103,15 +122,6 @@ export async function extractPdf(
     located.push({ locator, blocks: splitIntoBlocks(normalized) });
   }
 
-  // Fallback: if pagerender didn't collect anything, use the combined text
-  if (located.length === 0 && parsed.text) {
-    const normalized = normalizeText(parsed.text);
-    if (!normalized) return { ok: false, error: "NO_EXTRACTABLE_TEXT" };
-    if (normalized.length > PDF_MAX_CHARS) return { ok: false, error: "DOCUMENT_TOO_LONG" };
-    located.push({ locator: "Page 1", blocks: splitIntoBlocks(normalized) });
-    totalChars = normalized.length;
-  }
-
   if (located.length === 0) {
     return { ok: false, error: "NO_EXTRACTABLE_TEXT" };
   }
@@ -120,7 +130,7 @@ export async function extractPdf(
   return {
     ok: true,
     segments,
-    pageCount: parsed.numpages,
+    pageCount: numpages,
     charCount: totalChars,
   };
 }

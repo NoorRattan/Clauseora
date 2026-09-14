@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import type {
   Mode,
   AnchorRef,
@@ -196,11 +197,11 @@ export default function Home() {
       {/* ── Shell Header ── */}
       <header className="shell-header">
         <div className="shell-header-inner">
-          <a href="/" className="logo" aria-label="Clauseora — Home">
+          <Link href="/" className="logo" aria-label="Clauseora — Home">
             <div className="logo-icon" aria-hidden="true">⚖</div>
             <span>Clauseora</span>
             <span className="logo-tagline">Understand the words. Verify the evidence.</span>
-          </a>
+          </Link>
           <div className="header-spacer" />
           <button
             type="button"

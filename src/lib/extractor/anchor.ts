@@ -119,3 +119,33 @@ function buildAnchorId(
   // Generic fallback
   return `${document}-x${b}-b${b}`;
 }
+
+/** Check a list of anchor IDs against extracted segments. Fails closed on any unknown ID. */
+export function checkAnchorAllowlist<T extends { id: string }>(
+  anchorIds: string[],
+  allowedSegments: T[]
+): {
+  valid: boolean;
+  unknownIds: string[];
+  resolved: T[];
+} {
+  const allowedMap = new Map(allowedSegments.map((s) => [s.id, s]));
+  const unknownIds: string[] = [];
+  const resolved: T[] = [];
+
+  for (const id of anchorIds) {
+    const seg = allowedMap.get(id);
+    if (seg) {
+      resolved.push(seg);
+    } else {
+      unknownIds.push(id);
+    }
+  }
+
+  return {
+    valid: unknownIds.length === 0,
+    unknownIds,
+    resolved,
+  };
+}
+
