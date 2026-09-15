@@ -5,7 +5,7 @@ import { SmoothScroll } from "./components/SmoothScroll";
 export const metadata: Metadata = {
   title: "Clauseora — Evidence-First Legal Intelligence",
   description:
-    "Understand contracts in plain language with mathematically verified source-linked evidence. Clauseora connects every AI explanation to the exact passage in your document.",
+    "Understand contracts in plain language with source-linked evidence. Clauseora connects every AI explanation to the exact passage in your document.",
   keywords: [
     "legal document",
     "contract review",
@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark scroll-smooth">
+    <html lang="en" className="dark">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta httpEquiv="X-Content-Type-Options" content="nosniff" />

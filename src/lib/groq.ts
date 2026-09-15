@@ -1,6 +1,6 @@
 /**
  * Groq primary analyzer adapter.
- * Pinned model: llama-3.3-70b-versatile (best free-tier Groq model).
+ * Default model: openai/gpt-oss-120b. Override with GROQ_MODEL when needed.
  * Tools are disabled. Temperature = 0 for reproducibility.
  * Strict JSON schema mode constrains the output shape.
  */
@@ -15,7 +15,7 @@ import type {
   ActionPack,
 } from "@/types/evidence";
 
-export const GROQ_MODEL = "llama-3.3-70b-versatile";
+export const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
 /** Conservative token budget for the admitted document (free tier: 8K TPM) */
 export const GROQ_MAX_INPUT_TOKENS = 6_000;
 export const GROQ_MAX_OUTPUT_TOKENS = 4_096;

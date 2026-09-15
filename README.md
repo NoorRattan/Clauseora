@@ -27,7 +27,7 @@ Clauseora connects every AI-generated explanation, comparison, and answer to the
 
 | Provider | Model | Purpose |
 |---|---|---|
-| **Groq** (primary) | `llama-3.3-70b-versatile` | Full document Simplify, Compare, Ask, Action Pack generation |
+| **Groq** (primary) | `openai/gpt-oss-120b` | Full document Simplify, Compare, Ask, Action Pack generation |
 | **Cloudflare Workers AI** (verifier) | `@cf/meta/llama-3.1-8b-instruct-fast` | Checks only selected high-impact claims (money, deadlines) against cited excerpts |
 
 One endpoint: `POST /api/process`. Maximum two AI calls per request.
@@ -113,6 +113,7 @@ Visit `http://localhost:3000`.
 | Variable | Where to get it |
 |---|---|
 | `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) |
+| `GROQ_MODEL` | Optional override; defaults to the current tested model |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Dashboard → Workers & Pages |
 | `CLOUDFLARE_AI_TOKEN` | Cloudflare → My Profile → API Tokens (Workers AI permission) |
 

@@ -16,6 +16,7 @@ import { describe, it, expect } from "vitest";
 import {
   selectClaimsForVerification,
   deriveVerification,
+  parseVerifierResponse,
   CF_MAX_CLAIMS,
   CF_MAX_EXCERPT_CHARS,
   type CfResult,
@@ -144,6 +145,24 @@ describe("TEST-012 · Cross-model verification and disagreement", () => {
         expect(verification.checkedClaims).toBe(0);
         expect(verification.issues.length).toBe(0);
       }
+    });
+  });
+
+  describe("Verifier response parsing", () => {
+    const claims = [
+      { claimPath: "A-001", claimText: "Notice is 30 days.", excerpts: ["30 days notice"] },
+    ];
+
+    it("accepts a JSON array encoded as text", () => {
+      expect(
+        parseVerifierResponse('[{"id":"A-001","verdict":"supports"}]', claims)
+      ).toEqual([{ claimPath: "A-001", verdict: "supports" }]);
+    });
+
+    it("accepts Cloudflare's structured JSON array response", () => {
+      expect(
+        parseVerifierResponse([{ id: "A-001", verdict: "supports" }], claims)
+      ).toEqual([{ claimPath: "A-001", verdict: "supports" }]);
     });
   });
 });

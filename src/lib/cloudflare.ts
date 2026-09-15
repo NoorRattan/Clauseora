@@ -53,7 +53,7 @@ export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult>
 
   const prompt = buildVerificationPrompt(claims);
 
-  let responseText: string;
+  let responsePayload: unknown;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -79,17 +79,17 @@ export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult>
     if (!res.ok) return { ok: false, reason: "unavailable" };
 
     const json = (await res.json()) as {
-      result?: { response?: string };
+      result?: { response?: unknown };
       success?: boolean;
     };
-    responseText = json.result?.response ?? "";
+    responsePayload = json.result?.response ?? "";
   } catch {
     return { ok: false, reason: "unavailable" };
   }
 
   // Parse verdicts from the response
   try {
-    const verdicts = parseVerifierResponse(responseText, claims);
+    const verdicts = parseVerifierResponse(responsePayload, claims);
     return { ok: true, verdicts };
   } catch {
     return { ok: false, reason: "invalid" };
@@ -178,24 +178,30 @@ function buildVerificationPrompt(claims: ClaimToVerify[]): string {
   return `Please verify these claims against their excerpts:\n\n${parts.join("\n\n")}`;
 }
 
-function parseVerifierResponse(
-  response: string,
+export function parseVerifierResponse(
+  response: unknown,
   claims: ClaimToVerify[]
 ): Array<{ claimPath: string; verdict: CfVerdict }> {
-  // Extract JSON array from response
-  const match = response.match(/\[[\s\S]*\]/);
-  if (!match) throw new Error("No JSON array in response");
-
-  const parsed = JSON.parse(match[0]) as Array<{
-    id: string;
-    verdict: string;
-  }>;
+  let parsed: unknown = response;
+  if (typeof response === "string") {
+    const match = response.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error("No JSON array in response");
+    parsed = JSON.parse(match[0]);
+  }
+  if (!Array.isArray(parsed)) throw new Error("Verifier response is not an array");
 
   return parsed
-    .filter((v) => {
+    .filter((v): v is { id: string; verdict: string } => {
+      if (!v || typeof v !== "object") return false;
+      const candidate = v as { id?: unknown; verdict?: unknown };
       const validVerdicts = ["supports", "contradicts", "unclear"];
-      const claimExists = claims.some((c) => c.claimPath === v.id);
-      return claimExists && validVerdicts.includes(v.verdict);
+      const claimExists = claims.some((c) => c.claimPath === candidate.id);
+      return (
+        claimExists &&
+        typeof candidate.id === "string" &&
+        typeof candidate.verdict === "string" &&
+        validVerdicts.includes(candidate.verdict)
+      );
     })
     .map((v) => ({
       claimPath: v.id,

@@ -877,3 +877,19 @@ code, pre {
 .cyan-glow-ring {
   box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.4), 0 0 25px -4px rgba(6, 182, 212, 0.25);
 }
+
+/* Shared workspace treatment and user motion preferences. */
+.workspace-shell { background: #131b19; --blue-400: #b5d8bb; --blue-glow: #b5d8bb18; }
+.workspace-shell header { background: #131b19ed; }
+.workspace-shell main { max-width: 1080px; }
+.workspace-shell .text-gradient-gold { background: none; color: #c2e9cb; -webkit-text-fill-color: #c2e9cb; font-family: Georgia, serif; font-weight: 400; font-style: italic; }
+.workspace-shell .bg-gradient-to-r, .workspace-shell .bg-gradient-to-br { background-image: none; background-color: #c2e9cb; }
+.workspace-shell .shadow-glow-amber { box-shadow: 0 8px 25px #0002; }
+.workspace-shell .text-amber-400, .workspace-shell .text-amber-300 { color: #c2e9cb; }
+.workspace-shell .bg-obsidian-900\/70 { background-color: #1b2620; }
+.workspace-shell .bg-obsidian-950\/80 { background-color: #131b19; }
+html { scroll-padding-top: 24px; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

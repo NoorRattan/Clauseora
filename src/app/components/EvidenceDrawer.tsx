@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
 import type { AnchorRef } from "@/types/evidence";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, FileText, Copy, Check, ShieldCheck, Bookmark } from "lucide-react";
@@ -13,13 +14,7 @@ interface EvidenceDrawerProps {
 export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  const dialogRef = useDialogFocus(onClose);
 
   if (!anchor) return null;
 
@@ -54,6 +49,7 @@ export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
           transition={{ type: "spring", damping: 28, stiffness: 300 }}
           className="relative z-10 w-full max-w-lg h-full bg-obsidian-900/95 border-l border-white/10 shadow-2xl flex flex-col backdrop-blur-2xl"
           role="dialog"
+          ref={dialogRef}
           aria-modal="true"
           aria-label="Evidence Source Inspector"
         >
@@ -65,7 +61,7 @@ export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
               </div>
               <div>
                 <h2 className="text-base font-bold text-white tracking-tight">
-                  Source Ground Truth
+                  Source Passage
                 </h2>
                 <div className="text-xs font-mono text-slate-400">
                   Document {anchor.document} • Anchor ID: {anchor.anchorId}
@@ -78,7 +74,6 @@ export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
               onClick={onClose}
               className="p-2 rounded-xl text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
               aria-label="Close evidence drawer"
-              autoFocus
             >
               <X className="w-4 h-4" />
             </button>
@@ -136,10 +131,9 @@ export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 text-xs text-slate-400 leading-relaxed flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-semibold text-slate-200">Tamper-Proof Provenance:</span>{" "}
-                This excerpt is extracted directly from the uploaded file before any neural model
-                inference. The AI model was strictly constrained to reference this deterministic
-                anchor and was prevented from fabricating citations.
+                <span className="font-semibold text-slate-200">How this source link works:</span>{" "}
+                Clauseora extracted this passage before AI analysis and assigned it a fixed location
+                ID. The server rejects source IDs that do not exist in the uploaded document.
               </div>
             </div>
           </div>

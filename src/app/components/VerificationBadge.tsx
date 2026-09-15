@@ -22,7 +22,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps) {
       text: "text-emerald-300",
       glow: "shadow-[0_0_20px_-4px_rgba(16,185,129,0.3)]",
       icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />,
-      label: "Cross-checked Consensus",
+      label: "Second Check Passed",
       description: `${checkedClaims} high-impact claim${
         checkedClaims !== 1 ? "s" : ""
       } independently corroborated by a secondary AI model.`,
@@ -44,7 +44,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps) {
       text: "text-slate-300",
       glow: "",
       icon: <Shield className="w-4 h-4 text-slate-400" />,
-      label: "Single-Model Inference",
+      label: "Analyzed by One Model",
       description: "Secondary model verification was offline or skipped.",
     },
   }[status];
@@ -65,13 +65,13 @@ export function VerificationBadge({ verification }: VerificationBadgeProps) {
               </span>
               <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
               <span className="text-[11px] font-mono text-slate-400">
-                Deterministic Anchor Integrity
+                Source links validated
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
               {config.description}{" "}
               <span className="text-slate-400 italic">
-                Cross-checked means source agreement only — not legal counsel.
+                A second-model check confirms source support, not legal correctness.
               </span>
             </p>
           </div>

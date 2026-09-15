@@ -2,12 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  UploadCloud,
-  Trash2,
-  Sparkles,
-  FileCheck,
-} from "lucide-react";
+import { UploadCloud, Trash2, Sparkles, FileCheck } from "lucide-react";
 
 interface UploadZoneProps {
   label?: string;
@@ -29,6 +24,7 @@ export function UploadZone({
 }: UploadZoneProps) {
   const [dragOver, setDragOver] = useState(false);
   const [loadingPreset, setLoadingPreset] = useState<string | null>(null);
+  const [sampleError, setSampleError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleDrop = (e: React.DragEvent) => {
@@ -50,20 +46,29 @@ export function UploadZone({
     if (inputRef.current) inputRef.current.value = "";
   };
 
-  const loadSample = async (sampleId: string, filename: string, e: React.MouseEvent) => {
+  const loadSample = async (
+    sampleId: string,
+    filename: string,
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation();
     if (disabled) return;
     setLoadingPreset(sampleId);
+    setSampleError(null);
     try {
       const res = await fetch(`/api/sample?id=${sampleId}`);
       if (!res.ok) throw new Error("Failed to fetch sample fixture");
       const blob = await res.blob();
       const sampleFile = new File([blob], filename, {
-        type: blob.type || (filename.endsWith(".pdf") ? "application/pdf" : "text/plain"),
+        type:
+          blob.type ||
+          (filename.endsWith(".pdf") ? "application/pdf" : "text/plain"),
       });
       onFileChange(sampleFile);
-    } catch (err) {
-      console.error("Failed to load sample:", err);
+    } catch {
+      setSampleError(
+        "The sample could not be loaded. Please try again or choose a file.",
+      );
     } finally {
       setLoadingPreset(null);
     }
@@ -89,8 +94,18 @@ export function UploadZone({
       <motion.div
         id={zoneId}
         role="group"
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget || disabled) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         aria-labelledby={`${zoneId}-label`}
-        whileHover={!disabled ? { scale: 1.006, transition: { duration: 0.2 } } : {}}
+        whileHover={
+          !disabled ? { scale: 1.006, transition: { duration: 0.2 } } : {}
+        }
         whileTap={!disabled ? { scale: 0.995 } : {}}
         onDragOver={(e) => {
           e.preventDefault();
@@ -103,10 +118,10 @@ export function UploadZone({
           disabled
             ? "cursor-not-allowed opacity-50 bg-obsidian-950/40 border-white/5"
             : dragOver
-            ? "border-cyan-400 bg-cyan-950/20 shadow-glow-cyan"
-            : file
-            ? "border-amber-500/40 bg-obsidian-900/80 shadow-glow-amber"
-            : "border-white/10 bg-obsidian-900/50 hover:border-white/20 hover:bg-obsidian-850/60"
+              ? "border-cyan-400 bg-cyan-950/20 shadow-glow-cyan"
+              : file
+                ? "border-amber-500/40 bg-obsidian-900/80 shadow-glow-amber"
+                : "border-white/10 bg-obsidian-900/50 hover:border-white/20 hover:bg-obsidian-850/60"
         } backdrop-blur-xl p-6 sm:p-8 min-h-[220px] flex flex-col items-center justify-center text-center`}
       >
         {/* Subtle ambient gradient sheen */}
@@ -143,9 +158,13 @@ export function UploadZone({
               </div>
 
               <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400">
-                <span className="font-mono">{(file.size / 1024).toFixed(1)} KB</span>
+                <span className="font-mono">
+                  {(file.size / 1024).toFixed(1)} KB
+                </span>
                 <span>•</span>
-                <span className="text-amber-400/90 font-medium">Ready for verification</span>
+                <span className="text-amber-400/90 font-medium">
+                  Ready for verification
+                </span>
               </div>
 
               <div className="flex items-center gap-3 mt-4">
@@ -158,13 +177,16 @@ export function UploadZone({
                   <Trash2 className="w-3.5 h-3.5" />
                   Remove
                 </button>
-                <label
-                  htmlFor={inputId}
-                  onClick={(e) => e.stopPropagation()}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    inputRef.current?.click();
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
                 >
                   Change file
-                </label>
+                </button>
               </div>
             </motion.div>
           ) : (
@@ -183,7 +205,9 @@ export function UploadZone({
 
               <div className="text-sm font-semibold text-slate-200 mb-1">
                 Drop document here or{" "}
-                <span className="text-amber-400 underline underline-offset-2">browse</span>
+                <span className="text-amber-400 underline underline-offset-2">
+                  browse
+                </span>
               </div>
 
               <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
@@ -208,6 +232,11 @@ export function UploadZone({
       </motion.div>
 
       {/* 1-Click Agency Pre-loaded Fixture Bar */}
+      {sampleError && (
+        <p role="alert" className="mt-2 text-xs text-rose-300">
+          {sampleError}
+        </p>
+      )}
       {!file && (
         <div className="mt-2.5 flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
@@ -218,7 +247,9 @@ export function UploadZone({
             <button
               type="button"
               disabled={disabled || !!loadingPreset}
-              onClick={(e) => loadSample("mutual-nda", "Mutual-NDA-Standard.txt", e)}
+              onClick={(e) =>
+                loadSample("mutual-nda", "Mutual-NDA-Standard.txt", e)
+              }
               className="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-300 bg-white/5 hover:bg-amber-500/10 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 transition-all disabled:opacity-50"
             >
               {loadingPreset === "mutual-nda" ? "Loading..." : "Mutual NDA"}
@@ -228,9 +259,13 @@ export function UploadZone({
               disabled={disabled || !!loadingPreset}
               onClick={(e) =>
                 loadSample(
-                  docKey === "B" ? "services-agreement-v2" : "services-agreement-v1",
-                  docKey === "B" ? "Services-Agreement-v2.txt" : "Services-Agreement-v1.txt",
-                  e
+                  docKey === "B"
+                    ? "services-agreement-v2"
+                    : "services-agreement-v1",
+                  docKey === "B"
+                    ? "Services-Agreement-v2.txt"
+                    : "Services-Agreement-v1.txt",
+                  e,
                 )
               }
               className="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-300 bg-white/5 hover:bg-cyan-500/10 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/30 transition-all disabled:opacity-50"
@@ -238,8 +273,8 @@ export function UploadZone({
               {loadingPreset?.startsWith("services")
                 ? "Loading..."
                 : docKey === "B"
-                ? "Services v2"
-                : "Services v1"}
+                  ? "Services v2"
+                  : "Services v1"}
             </button>
           </div>
         </div>

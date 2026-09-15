@@ -4,7 +4,7 @@
 |---|---|
 | Revision | REV-003 |
 | Verification Date | 2026-09-15 |
-| Primary Analyzer | Groq (`llama-3.3-70b-versatile`), Temperature: 0 |
+| Primary Analyzer | Groq (`openai/gpt-oss-120b`), Temperature: 0 |
 | Secondary Verifier | Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`) |
 | Supported Formats | Text-layer PDF, DOCX, TXT |
 | Hard Admission Budget | 8 MB byte cap, 150 pages, 120,000 chars, 6,000 tokens |

@@ -272,7 +272,7 @@ function SimplifyView({
                       {/* Plain Language Synthesis */}
                       <div>
                         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 font-mono">
-                          Plain Language Translation
+                          In Plain Language
                         </div>
                         <p className="text-slate-200 text-sm leading-relaxed font-sans">
                           {clause.plainLanguage}
@@ -311,7 +311,7 @@ function SimplifyView({
                       {clause.items?.length > 0 && (
                         <div className="space-y-2">
                           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                            Substantive Breakdown & Conditions
+                            Key Details and Conditions
                           </div>
                           <div className="space-y-2">
                             {clause.items.map((item, ii) => (
@@ -550,7 +550,7 @@ function AskView({
       {/* Answer Box */}
       <div className="rounded-2xl border border-white/10 bg-obsidian-900/80 backdrop-blur-xl p-6 sm:p-8 shadow-glass-elevated space-y-4">
         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-          Cognitive Response
+          Answer From the Document
         </div>
         <p className="text-slate-100 text-base leading-relaxed font-sans">{result.answer}</p>
         {result.status !== "not_found" && (
@@ -619,7 +619,7 @@ function ActionPackSection({
         <div>
           <h2 className="text-lg font-bold text-white tracking-tight">Action Pack</h2>
           <p className="text-xs text-slate-400">
-            Immediate execution checklist and key questions for legal counsel
+            Document-based checklist and questions to discuss with a legal professional
           </p>
         </div>
       </div>
@@ -628,7 +628,7 @@ function ActionPackSection({
       {hasChecklist && (
         <section aria-labelledby="checklist-heading" className="space-y-3">
           <h3 id="checklist-heading" className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-            Execution Checklist ({completedItems.size}/{actionPack.checklist.length} completed)
+            Document Checklist ({completedItems.size}/{actionPack.checklist.length} completed)
           </h3>
           <div className="space-y-2">
             {actionPack.checklist.map((item, i) => {
