@@ -38,7 +38,8 @@ export type GroqError = {
     | "MODEL_REFUSAL"
     | "PRIMARY_QUOTA_EXHAUSTED"
     | "MODEL_TIMEOUT"
-    | "PRIMARY_UNAVAILABLE";
+    | "PRIMARY_UNAVAILABLE"
+    | "DOCUMENT_TOO_LONG";
   details?: string; // only for server logs, never exposed to client
 };
 
@@ -68,7 +69,7 @@ export async function callGroq(
   // Token budget check
   const estimatedInput = estimateTokens(systemPrompt) + estimateTokens(userMessage);
   if (estimatedInput > GROQ_MAX_INPUT_TOKENS) {
-    return { ok: false, error: "PRIMARY_UNAVAILABLE", details: "Token budget exceeded before API call" };
+    return { ok: false, error: "DOCUMENT_TOO_LONG", details: "Token budget exceeded before API call" };
   }
 
   let rawContent: string;

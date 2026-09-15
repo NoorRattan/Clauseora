@@ -327,16 +327,31 @@ function selectHighImpactIds(
   result: SimplifyResult | CompareResult | AskResult,
   mode: Mode
 ): string[] {
-  if (mode !== "simplify") return [];
-  const r = result as SimplifyResult;
   const highImpact: string[] = [];
-  for (const clause of r.clauses ?? []) {
-    for (const item of clause.items ?? []) {
-      if (item.kind === "money" || item.kind === "deadline") {
-        highImpact.push(...(item.anchorIds ?? []));
+
+  if (mode === "simplify") {
+    const r = result as SimplifyResult;
+    for (const clause of r.clauses ?? []) {
+      for (const item of clause.items ?? []) {
+        if (item.kind === "money" || item.kind === "deadline") {
+          highImpact.push(...(item.anchorIds ?? []));
+        }
+      }
+    }
+  } else if (mode === "compare") {
+    const r = result as CompareResult;
+    // Verify anchor IDs from changes that involve monetary or deadline terms
+    const MONEY_DEADLINE_RE = /\$|\b\d+[,.]?\d*\s*(usd|eur|gbp|month|mo\.?|year|yr\.?|day|week)\b|\b(payment|retainer|fee|deposit|salary|compensation|penalty|damages)\b|\b\d+[-\s]day|\b(due|deadline|expir|terminat|notice|renew)/i;
+    for (const change of r.changes ?? []) {
+      const text = [change.after ?? "", change.before ?? "", change.whyReview ?? ""].join(" ");
+      if (MONEY_DEADLINE_RE.test(text)) {
+        highImpact.push(...(change.anchorIdsA ?? []));
+        highImpact.push(...(change.anchorIdsB ?? []));
       }
     }
   }
+  // Ask mode: no Cloudflare verification (answer is already grounded by allowlist)
+
   return [...new Set(highImpact)].slice(0, 5);
 }
 
@@ -346,17 +361,35 @@ function buildClaimTexts(
   mode: Mode
 ): Map<string, string> {
   const map = new Map<string, string>();
-  if (mode !== "simplify") return map;
-  const r = result as SimplifyResult;
-  for (const clause of r.clauses ?? []) {
-    for (const item of clause.items ?? []) {
-      if (item.kind === "money" || item.kind === "deadline") {
-        for (const id of item.anchorIds ?? []) {
-          map.set(id, item.statement);
+
+  if (mode === "simplify") {
+    const r = result as SimplifyResult;
+    for (const clause of r.clauses ?? []) {
+      for (const item of clause.items ?? []) {
+        if (item.kind === "money" || item.kind === "deadline") {
+          for (const id of item.anchorIds ?? []) {
+            map.set(id, item.statement);
+          }
         }
       }
     }
+  } else if (mode === "compare") {
+    const r = result as CompareResult;
+    for (const change of r.changes ?? []) {
+      // Use the "after" (revised) text as the claim for verification
+      const claimText = [
+        change.topic,
+        change.after ?? change.before ?? "",
+      ]
+        .filter(Boolean)
+        .join(": ")
+        .slice(0, 400);
+      for (const id of [...(change.anchorIdsA ?? []), ...(change.anchorIdsB ?? [])]) {
+        if (!map.has(id)) map.set(id, claimText);
+      }
+    }
   }
+
   return map;
 }
 
