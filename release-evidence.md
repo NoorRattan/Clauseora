@@ -2,97 +2,48 @@
 
 | Field | Value |
 |---|---|
-| Revision | REV-003 |
-| Verification Date | 2026-09-15 |
-| Primary Analyzer | Groq (`openai/gpt-oss-120b`), Temperature: 0 |
-| Secondary Verifier | Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`) |
-| Supported Formats | Text-layer PDF, DOCX, TXT |
-| Hard Admission Budget | 8 MB byte cap, 150 pages, 120,000 chars, 6,000 tokens |
-| Test Suite Status | **12 / 12 test suites passed (137 tests passing, 0 failed)** |
-| Next.js Build Status | **Production Turbopack build passing with strict TypeScript** |
+| Revision | REV-004 |
+| Verification date | 2026-09-20 |
+| Primary analyzer | Groq (`openai/gpt-oss-120b` by default), temperature 0 |
+| Secondary verifier | Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`) |
+| Supported formats | Text-layer PDF, DOCX, TXT |
+| Admission limits | 8 MB, 150 PDF pages, 120,000 extracted characters, 6,000 estimated input tokens |
+| Test status | 15 test files, 151 tests passed |
+| Production status | Vercel deployment returned HTTP 200 for the landing page and synthetic sample endpoint |
 
----
+## Automated verification
 
-## 1. Automated Acceptance Gates (TEST-001 — TEST-012)
+The repository currently passes:
 
-All automated gates defined in `memory files/05-acceptance-tests.md` have been implemented and validated using Vitest v2:
-
-| Gate | Suite File | Tests | Status | Verification Summary |
-|---|---|---|---|---|
-| **TEST-001** | `001-anchor-determinism.test.ts` | 16 | PASSED | Deterministic segment extraction on identical buffers; page locators on PDF, paragraph on DOCX, line ranges on TXT; cross-document isolation. |
-| **TEST-002** | `002-upload-defense.test.ts` | 18 | PASSED | Admission defense: mode, extension, byte size, magic bytes signature validation, cross-type masquerading rejection (`%PDF` declared as `.txt`), budget checks. |
-| **TEST-003** | `003-anchor-allowlist.test.ts` | 11 | PASSED | Fail-closed anchor allowlist; unknown IDs trigger `MODEL_OUTPUT_INVALID`; cross-document ID leakage rejected; server-resolved excerpts only. |
-| **TEST-004** | `004-boundary-abstention.test.ts` | 14 | PASSED | `LEGAL_NOTICE_TEXT` present on all 100% terminal states; server substitutes fixed abstention message for `not_found` Ask queries; model cannot alter copy. |
-| **TEST-005** | `005-safe-rendering.test.ts` | 19 | PASSED | Injection resistance: script tags, HTML entities, event handlers, control characters, and prototype mutations remain inert bounded text; security headers verified. |
-| **TEST-006** | `006-no-persistence.test.ts` | 8 | PASSED | Zero persistence: memory-only extraction across TXT/PDF/DOCX, Segment types contain no file paths or raw buffers, logs redact document content, filenames, and questions. |
-| **TEST-007** | `007-api-integration.test.ts` | 24 | PASSED | Mocked end-to-end provider contracts for Simplify, Compare, Ask-supported, Ask-not-found, Action Pack, and error scenarios. |
-| **TEST-008** | `008-simplify-faithfulness.test.ts` | 5 | PASSED | Schema compliance for clause cards; exact dates and figures; obligations, conditions, and review flags; anchor entailment. |
-| **TEST-009** | `009-semantic-comparison.test.ts` | 5 | PASSED | A/B semantic diff; two-sided anchor isolation (A-* and B-*); substantive change recall on seeded terms; formatting-only noise suppression. |
-| **TEST-010** | `010-ask-grounding-abstention.test.ts` | 5 | PASSED | 20 golden Q&A labels tested; 100% abstention on unsupported queries; citation validity and relevance verification. |
-| **TEST-011** | `011-prompt-injection-resistance.test.ts` | 6 | PASSED | Direct question prompt injection bounds; indirect in-document instruction overrides fail closed; allowlist stops fabricated anchors. |
-| **TEST-012** | `012-cross-model-verification.test.ts` | 8 | PASSED | Payload safety (caps at 5 claims, 400 char excerpts, never full document); graceful `single_model` degradation on quota/timeout; non-majority-vote disagreement surfacing. |
-
-**Total: 12 test files, 139 tests passing (100% pass rate).**
-
----
-
-## 2. Test Fixtures Pack (`tests/fixtures/`)
-
-Committed non-personal synthetic test documents:
-
-1. `mutual-nda.txt`: 2-page equivalent mutual non-disclosure agreement (baseline for Simplify and Ask testing).
-2. `residential-lease.pdf`: Synthesized text-layer PDF with rent ($1,850/mo), security deposit, 60-day notice, 24-hr landlord entry, and pet restrictions.
-3. `services-agreement.docx`: Synthesized OpenXML DOCX services agreement covering scope, 30-day payment terms, 60-day termination, and Delaware governing law.
-4. `services-agreement-v1.txt`: Baseline version A with $8,000/mo retainer, 30-day payment window, 30-day termination, and 1x liability cap.
-5. `services-agreement-v2.txt`: Revised version B with seeded modifications ($12,000/mo retainer, 15-day payment window, 60-day termination, 3x liability cap, and subcontracting permission).
-6. `encrypted.pdf`: Encrypted document triggering `ENCRYPTED_DOCUMENT` admission failure.
-7. `image-only.pdf`: Document with no extractable text layer triggering `NO_EXTRACTABLE_TEXT`.
-8. `qa-labels.json`: 20 labeled test questions across all three contract fixtures spanning `supported`, `partially_supported`, and `not_found` states.
-
----
-
-## 3. Execution Commands
-
-### Unit and Integration Tests
-```bash
+```text
 npm test
-```
-Result:
-```
-✓ tests/003-anchor-allowlist.test.ts (11 tests)
-✓ tests/005-safe-rendering.test.ts (19 tests)
-✓ tests/004-boundary-abstention.test.ts (14 tests)
-✓ tests/007-api-integration.test.ts (24 tests)
-✓ tests/002-upload-defense.test.ts (18 tests)
-✓ tests/012-cross-model-verification.test.ts (8 tests)
-✓ tests/006-no-persistence.test.ts (6 tests)
-✓ tests/011-prompt-injection-resistance.test.ts (6 tests)
-✓ tests/009-semantic-comparison.test.ts (5 tests)
-✓ tests/010-ask-grounding-abstention.test.ts (5 tests)
-✓ tests/008-simplify-faithfulness.test.ts (5 tests)
-✓ tests/001-anchor-determinism.test.ts (16 tests)
-
-Test Files  12 passed (12)
-     Tests  137 passed (137)
-```
-
-### Next.js Production Build
-```bash
+npm run lint
+npx tsc --noEmit
 npm run build
+npm audit --audit-level=high
 ```
-Production output compiled with Turbopack, route `/api/process` configured as Node.js dynamic serverless route.
 
----
+The test suite covers deterministic anchors, upload and extraction boundaries, safe rendering, no-persistence behavior, provider contracts, Simplify/Compare/Ask grounding, prompt-injection resistance, cross-model verification, model-output invariants, and request-rate defenses.
 
-## 4. Key Architectural Guarantees
+## Security and evidence guarantees
 
-1. **Deterministic Anchor Assignment**:
-   All anchors (`A-p001-b001`, `A-l014-b001`) are calculated by the TypeScript extractor in memory prior to sending prompts to any model. The LLM is forbidden from authoring locators or quoting excerpts.
-2. **Server-Side Excerpt Resolution**:
-   Excerpts rendered in the UI Evidence Drawer are pulled directly from the server's in-memory segment index, preventing model hallucinations or excerpt alteration.
-3. **Fail-Closed Anchor Allowlist**:
-   If an LLM cites any anchor ID not present in the pre-extracted document index, the request fails closed immediately with error code `MODEL_OUTPUT_INVALID`.
-4. **Immutable Legal Boundary Notice**:
-   The notice (*"Clauseora provides information about the document you upload. Its AI-generated output may be wrong, incomplete, or miss important terms..."*) is hardcoded into `LEGAL_NOTICE_TEXT` and appended to all HTTP 200 and error envelopes.
-5. **Two-Model Verification Overlay**:
-   High-impact financial and deadline claims are verified via Cloudflare Workers AI. Cloudflare receives only excerpt snippets (maximum 5 claims, 400 chars each), never raw document buffers. If Cloudflare is unavailable or rate-limited, the system degrades cleanly to `single_model`.
+1. **Deterministic anchors** — application code assigns every source anchor before any model call.
+2. **Server-resolved excerpts** — the Evidence Drawer renders excerpts from the request-scoped source index, not from model-authored text.
+3. **Fail-closed output validation** — unknown anchors, malformed schemas, unsupported Ask answers, and invalid Compare before/after relationships are rejected.
+4. **Compare-side integrity** — A-side citations must resolve to Document A and B-side citations must resolve to Document B.
+5. **Bounded processing** — uploads, extracted text, segments, ZIP expansion, model tokens, provider timeouts, and output arrays have explicit limits.
+6. **Provider minimization** — Cloudflare receives only selected high-impact claims and short source excerpts; it does not receive the full document.
+7. **No application persistence** — the app does not store uploaded documents, document history, or model results in a database or object storage.
+8. **Fixed legal boundary** — every terminal API response includes the application-owned legal information notice.
+
+## Deployment
+
+Production: [clauseora.vercel.app](https://clauseora.vercel.app/)
+
+The Vercel project is connected to the public [`NoorRattan/Clauseora`](https://github.com/NoorRattan/Clauseora) repository. Provider credentials are configured as Vercel environment variables and are not committed to the repository.
+
+## Fixtures and scope
+
+The committed fixtures are synthetic and non-personal. They include mutual NDA, residential lease, services-agreement comparison, DOCX extraction, encrypted PDF, image-only PDF, and labeled Ask questions.
+
+This evidence confirms build, boundary, contract, and deterministic behavior. It is not a benchmark of live model accuracy or legal correctness. AI output may still be incomplete or wrong; users must verify important points in the source document and consult a qualified legal professional for legal advice.

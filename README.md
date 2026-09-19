@@ -12,6 +12,14 @@ Clauseora connects every AI-generated explanation, comparison, and answer to the
 
 ---
 
+## Live Demo
+
+[Open the deployed Clauseora app](https://clauseora.vercel.app/)
+
+The production deployment is connected to the [`main` branch](https://github.com/NoorRattan/Clauseora) on Vercel.
+
+---
+
 ## Demo Path (90 seconds)
 
 1. Open Clauseora and choose **Simplify**
@@ -28,7 +36,7 @@ Clauseora connects every AI-generated explanation, comparison, and answer to the
 | Provider | Model | Purpose |
 |---|---|---|
 | **Groq** (primary) | `openai/gpt-oss-120b` | Full document Simplify, Compare, Ask, Action Pack generation |
-| **Cloudflare Workers AI** (verifier) | `@cf/meta/llama-3.1-8b-instruct-fast` | Checks only selected high-impact claims (money, deadlines) against cited excerpts |
+| **Cloudflare Workers AI** (verifier) | `@cf/meta/llama-3.1-8b-instruct-fast` | Checks selected high-impact claims against cited excerpts |
 
 One endpoint: `POST /api/process`. Maximum two AI calls per request.
 
@@ -73,8 +81,7 @@ No database, no object storage, no persistent model history.
 
 - No OCR or image-only PDF support. Text-layer PDFs, DOCX, and TXT only.
 - Free-tier quotas limit document length (approximately 5,000–6,000 tokens input).
-- Groq's free tier: 8K tokens/minute, 1,000 requests/day.
-- Cloudflare Workers AI free tier: 10,000 neurons/day.
+- Provider quotas and pricing vary by account and plan.
 - AI output may be wrong or incomplete. Clauseora is not a substitute for a qualified legal professional.
 - Absence from Clauseora output never means absence from the document.
 
@@ -86,7 +93,7 @@ Your document is sent to our server for processing. **Groq receives the full adm
 
 Clauseora does not save your document to any database or storage. The app has no accounts and no stored history. Request buffers are eligible for collection when the request ends.
 
-See `memory files/04-security-privacy.md` for the full control specification.
+See [`release-evidence.md`](release-evidence.md) for the current verification summary.
 
 ---
 
@@ -119,12 +126,41 @@ Visit `http://localhost:3000`.
 
 ---
 
+## Deployment
+
+The production app is deployed on Vercel:
+
+- [Live deployment](https://clauseora.vercel.app/)
+- [GitHub repository](https://github.com/NoorRattan/Clauseora)
+
+Configure `GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_AI_TOKEN` in the Vercel project settings. Keep provider credentials in Vercel environment variables or a local `.env.local`; never commit them.
+
+---
+
+## Verification
+
+```bash
+npm test                 # 15 test files, 151 tests
+npm run lint
+npx tsc --noEmit
+npm run build
+npm audit --audit-level=high
+```
+
+The current test suite passes, the production build completes successfully, and the dependency audit reports no vulnerabilities.
+
+---
+
 ## Test Fixtures
 
 Synthetic, non-personal documents are in `tests/fixtures/`:
 - `mutual-nda.txt` — short mutual NDA for Simplify and Ask testing
+- `services-agreement-v1.txt` and `services-agreement-v2.txt` — seeded comparison pair
+- `residential-lease.pdf` — synthetic text-layer lease
+- `services-agreement.docx` — synthetic DOCX extraction fixture
+- `encrypted.pdf` and `image-only.pdf` — safe extraction failure cases
 
-Run tests (once test suite is added):
+Run the test suite:
 ```bash
 npm test
 ```
