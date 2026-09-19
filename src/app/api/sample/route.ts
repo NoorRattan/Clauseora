@@ -28,8 +28,14 @@ export async function GET(req: NextRequest) {
 
   if (!sampleKey || !SAMPLE_FILES[sampleKey]) {
     return NextResponse.json(
-      { error: "Sample not found. Valid options: mutual-nda, services-agreement-v1, services-agreement-v2, residential-lease" },
-      { status: 404 }
+      { error: "Sample not found." },
+      {
+        status: 404,
+        headers: {
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      },
     );
   }
 
@@ -43,12 +49,20 @@ export async function GET(req: NextRequest) {
         "Content-Type": sampleMeta.mimeType,
         "Content-Disposition": `attachment; filename="${sampleMeta.filename}"`,
         "Cache-Control": "public, max-age=3600",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
       },
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      { error: `Could not load sample fixture: ${(err as Error).message}` },
-      { status: 500 }
+      { error: "The requested sample could not be loaded." },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      },
     );
   }
 }

@@ -5,83 +5,89 @@
 
 import { z } from "zod";
 
+const anchorIdSchema = z.string().min(1).max(128);
+const shortTextSchema = z.string().min(1).max(500);
+const explanationSchema = z.string().min(1).max(5_000);
+const anchorIdsSchema = z.array(anchorIdSchema).min(1).max(100);
+const optionalTextSchema = z.string().min(1).max(5_000);
+
 // ─── Simplify ─────────────────────────────────────────────────────────────────
 
 export const clauseItemSchema = z.object({
   kind: z.enum(["obligation", "deadline", "money", "condition", "review_flag"]),
-  party: z.string(),
-  statement: z.string(),
-  anchorIds: z.array(z.string()).min(1),
+  party: shortTextSchema,
+  statement: explanationSchema,
+  anchorIds: anchorIdsSchema,
 });
 
 export const definedTermSchema = z.object({
-  term: z.string(),
-  meaningInContext: z.string(),
-  anchorIds: z.array(z.string()).optional(),
+  term: shortTextSchema,
+  meaningInContext: explanationSchema,
+  anchorIds: z.array(anchorIdSchema).max(100).optional(),
 });
 
 export const clauseCardSchema = z.object({
-  topic: z.string(),
-  plainLanguage: z.string(),
-  definedTerms: z.array(definedTermSchema).default([]),
-  items: z.array(clauseItemSchema).default([]),
-  anchorIds: z.array(z.string()).min(1),
+  topic: shortTextSchema,
+  plainLanguage: explanationSchema,
+  definedTerms: z.array(definedTermSchema).max(50).default([]),
+  items: z.array(clauseItemSchema).max(50).default([]),
+  anchorIds: anchorIdsSchema,
 });
 
 export const simplifyResponseSchema = z.object({
-  clauses: z.array(clauseCardSchema),
+  clauses: z.array(clauseCardSchema).max(100),
 });
 
 // ─── Compare ──────────────────────────────────────────────────────────────────
 
 export const changeItemSchema = z.object({
-  topic: z.string(),
+  topic: shortTextSchema,
   changeType: z.enum(["added", "removed", "modified"]),
-  before: z.string().nullable().optional(),
-  after: z.string().nullable().optional(),
-  whyReview: z.string(),
-  anchorIdsA: z.array(z.string()).default([]),
-  anchorIdsB: z.array(z.string()).default([]),
+  before: optionalTextSchema.nullable().optional(),
+  after: optionalTextSchema.nullable().optional(),
+  whyReview: explanationSchema,
+  anchorIdsA: z.array(anchorIdSchema).max(100).default([]),
+  anchorIdsB: z.array(anchorIdSchema).max(100).default([]),
 });
 
 export const compareResponseSchema = z.object({
-  changes: z.array(changeItemSchema),
-  structuralDifferences: z.array(z.string()).optional(),
-  recommendations: z.array(z.string()).optional(),
+  changes: z.array(changeItemSchema).max(100),
+  structuralDifferences: z.array(explanationSchema).max(50).optional(),
+  recommendations: z.array(explanationSchema).max(50).optional(),
 });
 
 // ─── Ask ──────────────────────────────────────────────────────────────────────
 
 export const askCitationSchema = z.object({
-  anchorId: z.string(),
-  relevance: z.string().optional(),
+  anchorId: anchorIdSchema,
+  relevance: z.string().max(500).optional(),
 });
 
 export const askResponseSchema = z.object({
   status: z.enum(["supported", "partially_supported", "not_found"]),
-  answer: z.string(),
-  notEstablished: z.array(z.string()).default([]),
-  anchorIds: z.array(z.string()).default([]),
-  citations: z.array(askCitationSchema).optional(),
-  confidence: z.string().optional(),
+  answer: z.string().max(5_000),
+  notEstablished: z.array(explanationSchema).max(20).default([]),
+  anchorIds: z.array(anchorIdSchema).max(100).default([]),
+  citations: z.array(askCitationSchema).max(100).optional(),
+  confidence: z.string().max(100).optional(),
 });
 
 // ─── Action Pack ──────────────────────────────────────────────────────────────
 
 export const checklistItemSchema = z.object({
-  item: z.string(),
-  party: z.string(),
-  dueOrTrigger: z.string(),
-  anchorIds: z.array(z.string()).min(1),
+  item: explanationSchema,
+  party: shortTextSchema,
+  dueOrTrigger: explanationSchema,
+  anchorIds: anchorIdsSchema,
 });
 
 export const lawyerQuestionSchema = z.object({
-  question: z.string(),
-  reason: z.string(),
-  anchorIds: z.array(z.string()).min(1),
+  question: explanationSchema,
+  reason: explanationSchema,
+  anchorIds: anchorIdsSchema,
 });
 
 export const actionPackSchema = z.object({
-  checklist: z.array(checklistItemSchema).default([]),
-  lawyerQuestions: z.array(lawyerQuestionSchema).default([]),
+  checklist: z.array(checklistItemSchema).max(100).default([]),
+  lawyerQuestions: z.array(lawyerQuestionSchema).max(5).default([]),
 });

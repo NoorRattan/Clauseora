@@ -25,6 +25,7 @@ import { randomUUID } from "crypto";
 
 import {
   LEGAL_NOTICE_TEXT,
+  NOT_FOUND_ABSTENTION_TEXT,
   type Mode,
   type EvidenceIndex,
   type Segment,
@@ -42,7 +43,12 @@ import { validateRequest, verifySignature } from "@/lib/validator";
 import { extractTxt } from "@/lib/extractor/txt";
 import { extractPdf } from "@/lib/extractor/pdf";
 import { extractDocx } from "@/lib/extractor/docx";
-import { callGroq, estimateTokens, GROQ_MAX_INPUT_TOKENS, GROQ_MODEL } from "@/lib/groq";
+import {
+  callGroq,
+  estimateGroqInputTokens,
+  GROQ_MAX_INPUT_TOKENS,
+  GROQ_MODEL,
+} from "@/lib/groq";
 import {
   callCloudflare,
   deriveVerification,
@@ -51,19 +57,54 @@ import {
 import { getSimplifyPrompt } from "@/lib/prompts/simplify";
 import { getComparePrompt } from "@/lib/prompts/compare";
 import { getAskPrompt } from "@/lib/prompts/ask";
-
-// Fixed abstention message for not_found Ask results (never model-generated)
-const NOT_FOUND_ANSWER =
-  "This information is not stated in the document you uploaded. Clauseora can only answer questions based on the content of the uploaded document.";
+import { buildClaimTexts } from "@/lib/verification-claims";
+import { checkRateLimit, isSameOriginRequest } from "@/lib/request-security";
 
 const EMPTY_ACTION_PACK: ActionPack = { checklist: [], lawyerQuestions: [] };
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+const MAX_SEGMENTS_PER_DOCUMENT = 500;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const requestId = randomUUID();
 
+  if (!isSameOriginRequest(req)) {
+    return errorResponse(
+      requestId,
+      null,
+      "INVALID_REQUEST",
+      "Cross-origin requests are not permitted.",
+    );
+  }
+
+  const rateLimit = checkRateLimit(req.headers);
+  if (!rateLimit.allowed) {
+    return errorResponse(
+      requestId,
+      null,
+      "RATE_LIMITED",
+      "Too many analysis requests. Please wait before trying again.",
+      { "Retry-After": String(rateLimit.retryAfterSeconds) },
+    );
+  }
+
+  try {
+    return await processRequest(req, requestId);
+  } catch {
+    // Keep unexpected parser/provider failures inside the fixed response
+    // contract. No upstream error body, stack, filename, or document text is
+    // returned to the browser.
+    return errorResponse(
+      requestId,
+      null,
+      "SERVICE_UNAVAILABLE",
+      "The analysis service is temporarily unavailable. Please try again later.",
+    );
+  }
+}
+
+async function processRequest(req: NextRequest, requestId: string): Promise<NextResponse> {
   // ─── Parse multipart form ───────────────────────────────────────────────────
   let formData: FormData;
   try {
@@ -86,7 +127,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { mode, fileA: validatedA, fileB: validatedB, question } = validation.data;
 
   // ─── 2. Read buffers + verify signatures ───────────────────────────────────
-  const fileABlob = formData.get("documentA") as File;
+  const fileABlob = formData.get("documentA");
+  if (!(fileABlob instanceof File)) {
+    return errorResponse(requestId, mode, "WRONG_FILE_COUNT", "documentA is required.");
+  }
   const bufA = Buffer.from(await fileABlob.arrayBuffer());
 
   const sigCheckA = verifySignature(bufA, validatedA.extension, fileABlob.type);
@@ -96,7 +140,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   let bufB: Buffer | null = null;
   if (validatedB) {
-    const fileBBlob = formData.get("documentB") as File;
+    const fileBBlob = formData.get("documentB");
+    if (!(fileBBlob instanceof File)) {
+      return errorResponse(requestId, mode, "WRONG_FILE_COUNT", "Compare mode requires documentB.");
+    }
     bufB = Buffer.from(await fileBBlob.arrayBuffer());
     const sigCheckB = verifySignature(bufB, validatedB.extension, fileBBlob.type);
     if (!sigCheckB.ok) {
@@ -122,6 +169,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const segmentsA = extractionA.segments;
+  if (segmentsA.length > MAX_SEGMENTS_PER_DOCUMENT) {
+    return errorResponse(
+      requestId,
+      mode,
+      "DOCUMENT_TOO_LONG",
+      "The document contains too many separate passages for the current processing limit. Please upload a shorter document or a subset of pages.",
+    );
+  }
+  if (segmentsB && segmentsB.length > MAX_SEGMENTS_PER_DOCUMENT) {
+    return errorResponse(
+      requestId,
+      mode,
+      "DOCUMENT_TOO_LONG",
+      "The documents contain too many separate passages for the current processing limit. Please upload shorter documents or a subset of pages.",
+    );
+  }
   const evidenceIndex: EvidenceIndex = new Map();
   for (const seg of segmentsA) evidenceIndex.set(seg.id, seg);
   if (segmentsB) for (const seg of segmentsB) evidenceIndex.set(seg.id, seg);
@@ -132,8 +195,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const allAnchorIds = [...anchorIdsA, ...anchorIdsB];
 
   const systemPrompt = getSystemPrompt(mode, anchorIdsA, anchorIdsB);
-  const userPreview = buildUserPreview(segmentsA, segmentsB, question);
-  const estimatedTokens = estimateTokens(systemPrompt) + estimateTokens(userPreview);
+  const estimatedTokens = estimateGroqInputTokens(
+    mode,
+    segmentsA,
+    segmentsB,
+    question,
+    systemPrompt,
+  );
 
   if (estimatedTokens > GROQ_MAX_INPUT_TOKENS) {
     return errorResponse(
@@ -151,10 +219,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // ─── 6. Validate schema + anchor allowlist ─────────────────────────────────
-  const modeResult = groqResult.result;
+  let modeResult = groqResult.result;
   const actionPack = groqResult.actionPack;
 
-  const anchorValidation = validateAnchors(modeResult, actionPack, allAnchorIds, mode);
+  // Apply the fixed abstention before resolving anchors so a not_found answer
+  // can never return stale evidence from model-supplied IDs.
+  if (mode === "ask") {
+    const askResult = modeResult as AskResult;
+    if (askResult.status === "not_found") {
+      modeResult = {
+        ...askResult,
+        answer: NOT_FOUND_ABSTENTION_TEXT,
+        anchorIds: [],
+      };
+    }
+  }
+
+  const anchorValidation = validateAnchors(
+    modeResult,
+    actionPack,
+    allAnchorIds,
+    mode,
+    anchorIdsA,
+    anchorIdsB,
+  );
   if (!anchorValidation.ok) {
     return errorResponse(requestId, mode, "MODEL_OUTPUT_INVALID", "The analysis result could not be verified and was withheld for your safety.");
   }
@@ -172,15 +260,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       heading: seg.heading,
       excerpt: seg.text,
     });
-  }
-
-  // Apply not_found fixed abstention
-  if (mode === "ask") {
-    const askResult = modeResult as AskResult;
-    if (askResult.status === "not_found") {
-      askResult.answer = NOT_FOUND_ANSWER;
-      askResult.anchorIds = [];
-    }
   }
 
   // ─── 8. Cloudflare verification ────────────────────────────────────────────
@@ -265,28 +344,33 @@ function getSystemPrompt(
   return getAskPrompt(anchorIdsA);
 }
 
-function buildUserPreview(
-  segmentsA: Segment[],
-  segmentsB: Segment[] | null,
-  question?: string
-): string {
-  const parts = segmentsA.map((s) => s.text).join(" ");
-  const partsB = segmentsB?.map((s) => s.text).join(" ") ?? "";
-  return parts + partsB + (question ?? "");
-}
-
 /** Validate that all anchor IDs in the model output exist in the allowlist. */
 function validateAnchors(
   result: SimplifyResult | CompareResult | AskResult,
   actionPack: ActionPack,
   allowedIds: string[],
-  mode: Mode
+  mode: Mode,
+  allowedIdsA: string[] = [],
+  allowedIdsB: string[] = [],
 ): { ok: boolean } {
   const allowed = new Set(allowedIds);
   const usedIds = collectAllAnchorIds(result, actionPack, mode);
   for (const id of usedIds) {
     if (!allowed.has(id)) return { ok: false };
   }
+
+  // Compare output has two independent evidence namespaces. A combined
+  // allowlist is not enough: a model must not cite a B passage as the A-side
+  // "before" evidence, or vice versa.
+  if (mode === "compare") {
+    const allowedA = new Set(allowedIdsA);
+    const allowedB = new Set(allowedIdsB);
+    for (const change of (result as CompareResult).changes) {
+      if (change.anchorIdsA.some((id) => !allowedA.has(id))) return { ok: false };
+      if (change.anchorIdsB.some((id) => !allowedB.has(id))) return { ok: false };
+    }
+  }
+
   return { ok: true };
 }
 
@@ -303,7 +387,7 @@ function collectAllAnchorIds(
     for (const clause of r.clauses ?? []) {
       ids.push(...(clause.anchorIds ?? []));
       for (const item of clause.items ?? []) ids.push(...(item.anchorIds ?? []));
-      for (const dt of clause.definedTerms ?? []) ids.push(...((dt as unknown as { anchorIds?: string[] }).anchorIds ?? []));
+      for (const dt of clause.definedTerms ?? []) ids.push(...(dt.anchorIds ?? []));
     }
   } else if (mode === "compare") {
     const r = result as CompareResult;
@@ -340,57 +424,20 @@ function selectHighImpactIds(
     }
   } else if (mode === "compare") {
     const r = result as CompareResult;
-    // Verify anchor IDs from changes that involve monetary or deadline terms
-    const MONEY_DEADLINE_RE = /\$|\b\d+[,.]?\d*\s*(usd|eur|gbp|month|mo\.?|year|yr\.?|day|week)\b|\b(payment|retainer|fee|deposit|salary|compensation|penalty|damages)\b|\b\d+[-\s]day|\b(due|deadline|expir|terminat|notice|renew)/i;
+    // Verify changes that could materially affect money, timing, termination,
+    // liability, indemnity, or governing-law language.
+    const HIGH_IMPACT_RE = /\$|\b\d+[,.]?\d*\s*(usd|eur|gbp|month|mo\.?|year|yr\.?|day|week)\b|\b(payment|retainer|fee|deposit|salary|compensation|penalty|damages|liabilit|indemnif|cap|limit|venue|jurisdiction|governing\s+law)\b|\b\d+[-\s]day|\b(due|deadline|expir|terminat|notice|renew|surviv)/i;
     for (const change of r.changes ?? []) {
       const text = [change.after ?? "", change.before ?? "", change.whyReview ?? ""].join(" ");
-      if (MONEY_DEADLINE_RE.test(text)) {
+      if (HIGH_IMPACT_RE.test(text)) {
         highImpact.push(...(change.anchorIdsA ?? []));
         highImpact.push(...(change.anchorIdsB ?? []));
       }
     }
   }
-  // Ask mode: no Cloudflare verification (answer is already grounded by allowlist)
+  // Ask mode: no Cloudflare verification (citations are validated, but entailment is not independently checked)
 
   return [...new Set(highImpact)].slice(0, 5);
-}
-
-/** Build a map from anchor ID to the claim text that references it. */
-function buildClaimTexts(
-  result: SimplifyResult | CompareResult | AskResult,
-  mode: Mode
-): Map<string, string> {
-  const map = new Map<string, string>();
-
-  if (mode === "simplify") {
-    const r = result as SimplifyResult;
-    for (const clause of r.clauses ?? []) {
-      for (const item of clause.items ?? []) {
-        if (item.kind === "money" || item.kind === "deadline") {
-          for (const id of item.anchorIds ?? []) {
-            map.set(id, item.statement);
-          }
-        }
-      }
-    }
-  } else if (mode === "compare") {
-    const r = result as CompareResult;
-    for (const change of r.changes ?? []) {
-      // Use the "after" (revised) text as the claim for verification
-      const claimText = [
-        change.topic,
-        change.after ?? change.before ?? "",
-      ]
-        .filter(Boolean)
-        .join(": ")
-        .slice(0, 400);
-      for (const id of [...(change.anchorIdsA ?? []), ...(change.anchorIdsB ?? [])]) {
-        if (!map.has(id)) map.set(id, claimText);
-      }
-    }
-  }
-
-  return map;
 }
 
 function safeExtractMessage(code: ErrorCode): string {
@@ -425,7 +472,8 @@ function errorResponse(
   requestId: string,
   mode: Mode | null,
   code: ErrorCode,
-  message: string
+  message: string,
+  extraHeaders: Record<string, string> = {},
 ): NextResponse {
   const body: ErrorResponse = {
     requestId,
@@ -437,7 +485,10 @@ function errorResponse(
     error: { code, message },
   };
   const status = HTTP_STATUS[code] ?? 500;
-  return NextResponse.json(body, { status, headers: securityHeaders() });
+  return NextResponse.json(body, {
+    status,
+    headers: { ...securityHeaders(), ...extraHeaders },
+  });
 }
 
 const HTTP_STATUS: Record<ErrorCode, number> = {
@@ -459,12 +510,15 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   MODEL_TIMEOUT: 504,
 };
 
-function securityHeaders(): Record<string, string> {
+export function securityHeaders(): Record<string, string> {
   return {
     "Content-Type": "application/json",
+    "Cache-Control": "no-store, max-age=0",
+    Pragma: "no-cache",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Content-Security-Policy":
       "default-src 'none'; frame-ancestors 'none'",
   };

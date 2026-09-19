@@ -18,6 +18,8 @@ CRITICAL RULES — violating any causes the result to be discarded:
 8. For "modified": provide both anchorIdsA AND anchorIdsB.
 9. For "added" (new in B): provide only anchorIdsB.
 10. For "removed" (only in A): provide only anchorIdsA.
+11. State numeric changes explicitly: 30 days to 15 days is a shorter payment window, never an increase.
+12. Do not infer dispute venue from governing law. In whyReview, restate only the changed right, obligation, amount, condition or timing; do not speculate about legal effects.
 
 OUTPUT FORMAT — respond with a single JSON object:
 {

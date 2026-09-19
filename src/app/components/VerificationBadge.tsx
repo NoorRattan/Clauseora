@@ -52,6 +52,8 @@ export function VerificationBadge({ verification }: VerificationBadgeProps) {
   return (
     <div
       className={`rounded-xl border ${config.border} ${config.bg} ${config.glow} p-4 backdrop-blur-xl transition-all duration-300`}
+      role="status"
+      aria-live="polite"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -83,6 +85,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps) {
             onClick={() => setExpanded(!expanded)}
             className="flex items-center gap-1 text-xs font-mono text-amber-400 hover:text-amber-300 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 transition-colors flex-shrink-0"
             aria-expanded={expanded}
+            aria-controls="verification-issues"
           >
             <span>{issues.length} issues</span>
             {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -97,6 +100,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps) {
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden mt-3 pt-3 border-t border-amber-500/20"
+            id="verification-issues"
           >
             <div className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider mb-2">
               Claims Requiring Verification
@@ -104,7 +108,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps) {
             <ul className="space-y-1.5">
               {issues.map((issue, idx) => (
                 <li
-                  key={idx}
+                  key={`${issue.claimPath}-${issue.verdict}-${idx}`}
                   className="flex items-start gap-2 text-xs text-slate-300 bg-black/20 p-2 rounded-lg border border-amber-500/10"
                 >
                   <span className="text-amber-400 font-bold">•</span>

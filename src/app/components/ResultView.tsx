@@ -76,10 +76,11 @@ function EvidenceChips({
   onEvidenceClick: (anchor: AnchorRef) => void;
 }) {
   if (!ids?.length) return null;
+  const uniqueIds = [...new Set(ids)];
   return (
     <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
       <span className="text-[11px] font-mono text-slate-500 mr-0.5">Anchors:</span>
-      {ids.map((id) => (
+      {uniqueIds.map((id) => (
         <EvidenceChip
           key={id}
           anchorId={id}
@@ -301,6 +302,11 @@ function SimplifyView({
                                   {dt.term}
                                 </span>
                                 <span className="text-slate-400"> — {dt.meaningInContext}</span>
+                                <EvidenceChips
+                                  ids={dt.anchorIds ?? []}
+                                  resolvedAnchors={resolvedAnchors}
+                                  onEvidenceClick={onEvidenceClick}
+                                />
                               </div>
                             ))}
                           </div>
@@ -400,9 +406,15 @@ function CompareView({
 
       {filtered.length === 0 ? (
         <div className="p-8 text-center rounded-2xl border border-white/10 bg-obsidian-900/60">
-          <p className="text-slate-300 font-medium">No substantive changes match this filter.</p>
+          <p className="text-slate-300 font-medium">
+            {filter === "all"
+              ? "No substantive changes were identified."
+              : "No substantive changes match this filter."}
+          </p>
           <p className="text-xs text-slate-500 mt-1">
-            Important content may have been missed. Always verify against source documents.
+            {filter === "all"
+              ? "Formatting-only differences are not shown. Always verify against source documents."
+              : "Try another filter or verify against the source documents."}
           </p>
         </div>
       ) : (
@@ -646,7 +658,12 @@ function ActionPackSection({
                   <button
                     type="button"
                     aria-label={isChecked ? "Mark incomplete" : "Mark complete"}
-                    className="mt-0.5 text-amber-400 focus:outline-none"
+                    aria-pressed={isChecked}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleItem(i);
+                    }}
+                    className="mt-0.5 text-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-950"
                   >
                     {isChecked ? (
                       <CheckSquare className="w-4 h-4 text-emerald-400" />
@@ -654,7 +671,14 @@ function ActionPackSection({
                       <Square className="w-4 h-4 text-slate-500 hover:text-slate-300" />
                     )}
                   </button>
-                  <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="flex-1 min-w-0"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if ((event.target as HTMLElement).closest("button")) return;
+                      toggleItem(i);
+                    }}
+                  >
                     <div
                       className={`text-sm font-medium ${
                         isChecked ? "line-through text-slate-500" : "text-slate-200"

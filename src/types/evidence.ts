@@ -46,6 +46,8 @@ export type ClauseItem = {
 export type DefinedTerm = {
   term: string;
   meaningInContext: string;
+  /** Optional for backwards-compatible fixtures; generated terms should cite evidence. */
+  anchorIds?: string[];
 };
 
 export type ClauseCard = {
@@ -74,6 +76,8 @@ export type Change = {
 
 export type CompareResult = {
   changes: Change[];
+  structuralDifferences?: string[];
+  recommendations?: string[];
 };
 
 // ─── Ask ──────────────────────────────────────────────────────────────────────
@@ -85,6 +89,8 @@ export type AskResult = {
   answer: string;
   notEstablished: string[];
   anchorIds: string[];
+  citations?: Array<{ anchorId: string; relevance?: string }>;
+  confidence?: string;
 };
 
 // ─── Action Pack ──────────────────────────────────────────────────────────────

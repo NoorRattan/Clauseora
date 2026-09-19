@@ -30,6 +30,10 @@ export async function extractPdf(
   buffer: Buffer,
   document: "A" | "B"
 ): Promise<PdfExtractionResult> {
+  if (buffer.length > PDF_MAX_BYTES) {
+    return { ok: false, error: "DOCUMENT_TOO_LONG" };
+  }
+
   // Dynamically import pdf-parse (CJS module) to keep this tree-shakeable
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let pdfModule: any;
@@ -43,11 +47,29 @@ export async function extractPdf(
   // Per-page text accumulation
   const pageTexts: string[] = [];
   let numpages = 0;
+  let parser:
+    | {
+        getText: () => Promise<{
+          total?: number;
+          pages?: Array<{ text?: string }>;
+          text?: string;
+        }>;
+        destroy?: () => Promise<void> | void;
+      }
+    | undefined;
 
   try {
     if (pdfModule.PDFParse) {
-      const parser = new pdfModule.PDFParse({ data: buffer });
-      const result = await parser.getText();
+      const pdfParser = new pdfModule.PDFParse({ data: buffer }) as {
+        getText: () => Promise<{
+          total?: number;
+          pages?: Array<{ text?: string }>;
+          text?: string;
+        }>;
+        destroy?: () => Promise<void> | void;
+      };
+      parser = pdfParser;
+      const result = await pdfParser.getText();
       numpages = result.total || result.pages?.length || 1;
       if (numpages > PDF_MAX_PAGES) {
         return { ok: false, error: "DOCUMENT_TOO_LONG" };
@@ -101,6 +123,12 @@ export async function extractPdf(
       return { ok: false, error: "ENCRYPTED_DOCUMENT" };
     }
     return { ok: false, error: "CORRUPT_DOCUMENT" };
+  } finally {
+    try {
+      await parser?.destroy?.();
+    } catch {
+      // Parser cleanup must never change the safe extraction result.
+    }
   }
 
   if (numpages > PDF_MAX_PAGES) {

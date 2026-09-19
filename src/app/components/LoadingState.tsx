@@ -7,19 +7,19 @@ import { Loader2, CheckCircle2, Cpu, Sparkles, XCircle } from "lucide-react";
 const STEPS = [
   {
     title: "Parsing document structure",
-    detail: "Extracting raw paragraphs, tables, and sections into memory",
+    detail: "Reading the text in your document",
   },
   {
-    title: "Assigning deterministic anchors",
-    detail: "Generating immutable location IDs (A-p001-b001) for every passage",
+    title: "Linking source passages",
+    detail: "Preparing links so you can inspect the original wording",
   },
   {
-    title: "Primary cognitive analysis",
+    title: "Explaining your document",
     detail: "Synthesizing plain-language interpretations with strict evidence links",
   },
   {
-    title: "Cross-model consensus verification",
-    detail: "Verifying cited excerpts with secondary independent AI evaluator",
+    title: "Optional source check",
+    detail: "An additional source check may run when available",
   },
 ];
 
@@ -82,9 +82,9 @@ export function LoadingState({ stepIndex, onCancel }: LoadingStateProps) {
         <div className="flex justify-between items-center text-xs font-mono text-slate-400 mb-2">
           <span className="flex items-center gap-1 text-amber-400">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Step {stepIndex + 1} of {STEPS.length}</span>
+            <span>Processing your document</span>
           </span>
-          <span>{progressPercent}%</span>
+          <span>Timing varies</span>
         </div>
         <div className="w-full h-2 rounded-full bg-white/5 border border-white/10 overflow-hidden relative">
           <motion.div

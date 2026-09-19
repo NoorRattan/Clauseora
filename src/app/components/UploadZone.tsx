@@ -38,6 +38,9 @@ export function UploadZone({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] ?? null;
     onFileChange(selected);
+    // Clear the native input so selecting the same file again still emits a
+    // change event after a retry or replacement.
+    e.currentTarget.value = "";
   };
 
   const handleRemove = (e: React.MouseEvent) => {
@@ -95,6 +98,9 @@ export function UploadZone({
         id={zoneId}
         role="group"
         tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled || undefined}
+        aria-busy={loadingPreset !== null}
+        aria-describedby={`${zoneId}-description`}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget || disabled) return;
           if (event.key === "Enter" || event.key === " ") {
@@ -156,6 +162,9 @@ export function UploadZone({
               <div className="font-semibold text-slate-100 text-base max-w-[90%] truncate">
                 {file.name}
               </div>
+              <p id={`${zoneId}-description`} className="sr-only">
+                Selected document {file.name}. Press Enter or Space to choose a different file.
+              </p>
 
               <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400">
                 <span className="font-mono">
@@ -210,7 +219,10 @@ export function UploadZone({
                 </span>
               </div>
 
-              <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+              <p
+                id={`${zoneId}-description`}
+                className="text-xs text-slate-400 max-w-xs leading-relaxed"
+              >
                 PDF, DOCX, or TXT • Max 8 MB • 150 pages • 100% In-Memory
               </p>
             </motion.div>
@@ -233,7 +245,7 @@ export function UploadZone({
 
       {/* 1-Click Agency Pre-loaded Fixture Bar */}
       {sampleError && (
-        <p role="alert" className="mt-2 text-xs text-rose-300">
+        <p role="alert" aria-live="assertive" className="mt-2 text-xs text-rose-300">
           {sampleError}
         </p>
       )}

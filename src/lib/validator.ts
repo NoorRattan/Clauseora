@@ -8,6 +8,7 @@
  */
 
 import type { Mode, ErrorCode } from "@/types/evidence";
+import { TextDecoder } from "node:util";
 
 // ─── Limits ───────────────────────────────────────────────────────────────────
 
@@ -83,19 +84,32 @@ export function validateRequest(formData: FormData): ValidationResult {
   }
   const mode = modeRaw as Mode;
 
-  // 2. File count
-  const fileA = formData.get("documentA");
-  const fileB = formData.get("documentB");
+  // 2. File count. Reject repeated named fields and file values in any
+  // unexpected field; otherwise an attacker can smuggle an extra upload that
+  // the route silently ignores.
+  const documentAValues = formData.getAll("documentA");
+  const documentBValues = formData.getAll("documentB");
+  const allowedFileFields = new Set(
+    mode === "compare" ? ["documentA", "documentB"] : ["documentA"],
+  );
+  for (const [field, value] of formData.entries()) {
+    if (value instanceof File && !allowedFileFields.has(field)) {
+      return err("WRONG_FILE_COUNT", "Only the required document fields are accepted.");
+    }
+  }
 
-  if (!(fileA instanceof File)) {
+  if (documentAValues.length !== 1 || !(documentAValues[0] instanceof File)) {
     return err("WRONG_FILE_COUNT", "documentA is required.");
   }
-  if (mode === "compare" && !(fileB instanceof File)) {
+  const fileA = documentAValues[0];
+
+  if (mode === "compare" && (documentBValues.length !== 1 || !(documentBValues[0] instanceof File))) {
     return err("WRONG_FILE_COUNT", "Compare mode requires documentB.");
   }
-  if (mode !== "compare" && fileB instanceof File) {
+  if (mode !== "compare" && documentBValues.length > 0) {
     return err("WRONG_FILE_COUNT", "Only one document is accepted for this mode.");
   }
+  const fileB = documentBValues[0];
 
   // 3. Validate each file
   const validA = validateFile(fileA);
@@ -143,6 +157,15 @@ function validateFile(
   file: File
 ): { ok: true; file: ValidatedFile } | { ok: false; error: ValidationError } {
   // 1. Byte size
+  if (file.size === 0) {
+    return {
+      ok: false,
+      error: {
+        code: "NO_EXTRACTABLE_TEXT",
+        message: "The uploaded document is empty. Please choose a document with readable text.",
+      },
+    };
+  }
   if (file.size > MAX_FILE_BYTES) {
     return {
       ok: false,
@@ -188,9 +211,14 @@ export function verifySignature(
   // MIME allowlist
   const allowedMimes = ALLOWED_EXTENSIONS[extension];
   const normalizedMime = declaredMime.split(";")[0].trim().toLowerCase();
-  if (!allowedMimes.some((m) => m.includes(normalizedMime) || normalizedMime.includes(m.split("/")[1]))) {
-    // Some browsers report wrong MIME; we'll rely on magic bytes too
-    // Not a hard failure here — signature check below is authoritative
+  if (normalizedMime && !allowedMimes.includes(normalizedMime)) {
+    return {
+      ok: false,
+      error: {
+        code: "TYPE_MISMATCH",
+        message: `The reported file type does not match the declared extension (${extension.toUpperCase()}).`,
+      },
+    };
   }
 
   // Magic bytes — check that buffer starts with the expected signature
@@ -222,6 +250,29 @@ export function verifySignature(
           },
         };
       }
+    }
+
+    // Plain text has no magic number, so reject binary data and invalid UTF-8
+    // before it reaches the text extractor or model prompt.
+    if (buffer.includes(0)) {
+      return {
+        ok: false,
+        error: {
+          code: "TYPE_MISMATCH",
+          message: "File content does not appear to be UTF-8 plain text.",
+        },
+      };
+    }
+    try {
+      new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    } catch {
+      return {
+        ok: false,
+        error: {
+          code: "TYPE_MISMATCH",
+          message: "File content does not appear to be UTF-8 plain text.",
+        },
+      };
     }
   }
 
@@ -255,4 +306,3 @@ export function validateQuestion(question: string): {
   }
   return { valid: true, sanitized: trimmed };
 }
-

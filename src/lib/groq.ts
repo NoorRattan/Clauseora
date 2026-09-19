@@ -14,11 +14,18 @@ import type {
   AskResult,
   ActionPack,
 } from "@/types/evidence";
+import {
+  actionPackSchema,
+  askResponseSchema,
+  compareResponseSchema,
+  simplifyResponseSchema,
+} from "@/lib/schemas";
 
 export const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
 /** Conservative token budget for the admitted document (free tier: 8K TPM) */
 export const GROQ_MAX_INPUT_TOKENS = 6_000;
 export const GROQ_MAX_OUTPUT_TOKENS = 4_096;
+export const GROQ_TIMEOUT_MS = 30_000;
 
 /** Rough character-to-token estimate (conservative: 3 chars per token). */
 export function estimateTokens(text: string): number {
@@ -61,7 +68,13 @@ export async function callGroq(
     return { ok: false, error: "PRIMARY_UNAVAILABLE", details: "GROQ_API_KEY not set" };
   }
 
-  const client = new Groq({ apiKey });
+  // A single bounded attempt keeps the route inside its serverless deadline
+  // and avoids silently duplicating a paid/provider request on retry.
+  const client = new Groq({
+    apiKey,
+    timeout: GROQ_TIMEOUT_MS,
+    maxRetries: 0,
+  });
 
   // Build the user message: segments as labeled data
   const userMessage = buildUserMessage(mode, segments, segmentsB, question);
@@ -91,17 +104,20 @@ export async function callGroq(
       return { ok: false, error: "MODEL_REFUSAL" };
     }
   } catch (err: unknown) {
-    const msg = String(err);
-    if (msg.includes("429") || msg.includes("rate") || msg.includes("quota")) {
+    const errorText = getErrorText(err);
+    if (isRateLimitError(err, errorText)) {
       return { ok: false, error: "PRIMARY_QUOTA_EXHAUSTED" };
     }
-    if (msg.includes("timeout") || msg.includes("ETIMEDOUT")) {
+    if (isTimeoutError(err, errorText)) {
       return { ok: false, error: "MODEL_TIMEOUT" };
     }
-    return { ok: false, error: "PRIMARY_UNAVAILABLE", details: msg };
+    // Do not retain or expose provider bodies: they can contain request
+    // metadata and are not needed to render the safe client error.
+    return { ok: false, error: "PRIMARY_UNAVAILABLE", details: "provider request failed" };
   }
 
-  // Parse JSON — schema validation happens in the route handler
+  // Parse JSON, then validate the schema and evidence invariants before the
+  // result can reach the route handler.
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawContent);
@@ -109,20 +125,17 @@ export async function callGroq(
     return { ok: false, error: "MODEL_OUTPUT_INVALID", details: "JSON parse failed" };
   }
 
-  // Extract mode result and action pack from the parsed object
-  const obj = parsed as Record<string, unknown>;
-
-  const result = obj.result as SimplifyResult | CompareResult | AskResult;
-  const actionPack: ActionPack = (obj.actionPack as ActionPack) ?? {
-    checklist: [],
-    lawyerQuestions: [],
-  };
-
-  if (!result) {
-    return { ok: false, error: "MODEL_OUTPUT_INVALID", details: "Missing result field" };
+  const validated = validateModelOutput(mode, parsed);
+  if (!validated.ok) {
+    return { ok: false, error: "MODEL_OUTPUT_INVALID", details: validated.reason };
   }
 
-  return { ok: true, result, actionPack, model: GROQ_MODEL };
+  return {
+    ok: true,
+    result: validated.result,
+    actionPack: validated.actionPack,
+    model: GROQ_MODEL,
+  };
 }
 
 // ─── User message construction ────────────────────────────────────────────────
@@ -156,4 +169,188 @@ function buildUserMessage(
   }
 
   return parts.join("\n\n");
+}
+
+/** Estimate the exact prompt shape used by callGroq before making the request. */
+export function estimateGroqInputTokens(
+  mode: Mode,
+  segmentsA: Segment[],
+  segmentsB: Segment[] | null,
+  question: string | undefined,
+  systemPrompt: string,
+): number {
+  return estimateTokens(systemPrompt) + estimateTokens(
+    buildUserMessage(mode, segmentsA, segmentsB, question),
+  );
+}
+
+type ValidatedModelOutput = {
+  ok: true;
+  result: SimplifyResult | CompareResult | AskResult;
+  actionPack: ActionPack;
+};
+
+type InvalidModelOutput = {
+  ok: false;
+  reason: string;
+};
+
+/**
+ * Validate both the JSON shape and the cross-field invariants that a schema
+ * alone cannot express (for example, Compare added vs. removed anchors).
+ */
+export function validateModelOutput(
+  mode: Mode,
+  parsed: unknown,
+): ValidatedModelOutput | InvalidModelOutput {
+  if (!isRecord(parsed)) return invalid("top-level output is not an object");
+
+  const actionPack = actionPackSchema.safeParse(parsed.actionPack ?? {
+    checklist: [],
+    lawyerQuestions: [],
+  });
+  if (!actionPack.success) return invalid("action pack schema failed");
+
+  if (mode === "simplify") {
+    const result = simplifyResponseSchema.safeParse(parsed.result);
+    if (!result.success || !isValidSimplifyResult(result.data)) {
+      return invalid("simplify schema or evidence invariant failed");
+    }
+    return {
+      ok: true,
+      result: result.data as SimplifyResult,
+      actionPack: actionPack.data,
+    };
+  }
+
+  if (mode === "compare") {
+    const result = compareResponseSchema.safeParse(parsed.result);
+    if (!result.success || !isValidCompareResult(result.data)) {
+      return invalid("compare schema or change invariant failed");
+    }
+    return {
+      ok: true,
+      result: {
+        ...result.data,
+        changes: result.data.changes.map((change) => ({
+          ...change,
+          before: change.before ?? null,
+          after: change.after ?? null,
+        })),
+      } as CompareResult,
+      actionPack: actionPack.data,
+    };
+  }
+
+  const result = askResponseSchema.safeParse(parsed.result);
+  if (!result.success) return invalid("ask schema failed");
+
+  const citationIds = result.data.citations?.map((citation) => citation.anchorId) ?? [];
+  if (
+    result.data.anchorIds.length > 0 &&
+    citationIds.some((anchorId) => !result.data.anchorIds.includes(anchorId))
+  ) {
+    return invalid("Ask anchorIds and citations disagree");
+  }
+  const anchorIds = dedupe(result.data.anchorIds.length ? result.data.anchorIds : citationIds);
+  const normalizedAsk: AskResult = {
+    status: result.data.status,
+    answer: result.data.answer,
+    notEstablished: result.data.notEstablished,
+    anchorIds,
+    citations: result.data.citations,
+    confidence: result.data.confidence,
+  };
+
+  if (
+    (normalizedAsk.status === "supported" || normalizedAsk.status === "partially_supported") &&
+    normalizedAsk.anchorIds.length === 0
+  ) {
+    return invalid("supported Ask result has no evidence anchors");
+  }
+  if (
+    normalizedAsk.status === "partially_supported" &&
+    normalizedAsk.notEstablished.length === 0
+  ) {
+    return invalid("partially supported Ask result has no not-established facts");
+  }
+  if (normalizedAsk.status === "not_found" && (anchorIds.length > 0 || citationIds.length > 0)) {
+    return invalid("not-found Ask result contains evidence anchors");
+  }
+
+  return { ok: true, result: normalizedAsk, actionPack: actionPack.data };
+}
+
+function isValidSimplifyResult(result: { clauses: Array<{
+  anchorIds: string[];
+  items: Array<{ anchorIds: string[] }>;
+  definedTerms: Array<{ anchorIds?: string[] }>;
+}>}): boolean {
+  return result.clauses.every((clause) =>
+    clause.anchorIds.length > 0 &&
+    clause.items.every((item) => item.anchorIds.length > 0) &&
+    clause.definedTerms.every((term) => (term.anchorIds?.length ?? 0) > 0),
+  );
+}
+
+function isValidCompareResult(result: {
+  changes: Array<{
+    changeType: "added" | "removed" | "modified";
+    before?: string | null;
+    after?: string | null;
+    anchorIdsA: string[];
+    anchorIdsB: string[];
+  }>;
+}): boolean {
+  return result.changes.every((change) => {
+    if (change.changeType === "modified") {
+      return (
+        change.anchorIdsA.length > 0 &&
+        change.anchorIdsB.length > 0 &&
+        change.before != null &&
+        change.after != null
+      );
+    }
+    if (change.changeType === "added") {
+      return (
+        change.anchorIdsA.length === 0 &&
+        change.anchorIdsB.length > 0 &&
+        change.before == null &&
+        change.after != null
+      );
+    }
+    return (
+      change.anchorIdsA.length > 0 &&
+      change.anchorIdsB.length === 0 &&
+      change.before != null &&
+      change.after == null
+    );
+  });
+}
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function invalid(reason: string): InvalidModelOutput {
+  return { ok: false, reason };
+}
+
+function getErrorText(error: unknown): string {
+  if (error instanceof Error) return error.message.toLowerCase();
+  return String(error).toLowerCase();
+}
+
+function isRateLimitError(error: unknown, errorText: string): boolean {
+  const status = isRecord(error) && typeof error.status === "number" ? error.status : undefined;
+  return status === 429 || /\b(429|rate limit|rate_limit|quota)\b/i.test(errorText);
+}
+
+function isTimeoutError(error: unknown, errorText: string): boolean {
+  const name = isRecord(error) && typeof error.name === "string" ? error.name : "";
+  return /timeout|timedout|etimedout|abort/i.test(`${name} ${errorText}`);
 }

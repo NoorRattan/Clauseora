@@ -4,6 +4,12 @@ import { useEffect, useRef } from "react";
 /** Keeps keyboard focus inside an open dialog and restores its trigger on close. */
 export function useDialogFocus(onClose: () => void) {
   const ref = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
@@ -14,14 +20,14 @@ export function useDialogFocus(onClose: () => void) {
     const focusable = () =>
       Array.from(
         dialog.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), [tabindex="0"]',
+          'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [contenteditable="true"], [tabindex="0"]',
         ),
       ).filter((element) => element.getClientRects().length > 0);
     focusable()[0]?.focus();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
       if (event.key !== "Tab") return;
       const elements = focusable();
@@ -53,6 +59,6 @@ export function useDialogFocus(onClose: () => void) {
       document.removeEventListener("keydown", handleKey);
       previous?.focus();
     };
-  }, [onClose]);
+  }, []);
   return ref;
 }

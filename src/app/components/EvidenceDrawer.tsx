@@ -51,7 +51,9 @@ export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
           role="dialog"
           ref={dialogRef}
           aria-modal="true"
-          aria-label="Evidence Source Inspector"
+          aria-labelledby="evidence-title"
+          aria-describedby="evidence-description"
+          tabIndex={-1}
         >
           {/* Header */}
           <div className="p-6 border-b border-white/10 flex items-center justify-between">
@@ -60,7 +62,10 @@ export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
                 <Bookmark className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white tracking-tight">
+                <h2
+                  id="evidence-title"
+                  className="text-base font-bold text-white tracking-tight"
+                >
                   Source Passage
                 </h2>
                 <div className="text-xs font-mono text-slate-400">
@@ -80,7 +85,10 @@ export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div
+            id="evidence-description"
+            className="flex-1 overflow-y-auto p-6 space-y-6"
+          >
             {/* Locator Tag */}
             <div className="flex items-center justify-between p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-mono">
               <div className="flex items-center gap-2">

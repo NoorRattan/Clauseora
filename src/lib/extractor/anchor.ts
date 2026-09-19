@@ -14,6 +14,9 @@ import type { Segment } from "@/types/evidence";
 export function normalizeText(raw: string): string {
   return raw
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "") // control chars except \t \n \r
+    // Remove invisible formatting controls that can disguise prompt injection
+    // or make a source passage render differently from what was extracted.
+    .replace(/[\u200B-\u200D\u2060\uFEFF\u202A-\u202E\u2066-\u2069]/g, "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .replace(/[ \t]+/g, " ")
@@ -30,6 +33,10 @@ export function splitIntoBlocks(
   text: string,
   maxChars = 1200
 ): string[] {
+  if (!Number.isInteger(maxChars) || maxChars < 1) {
+    throw new Error("maxChars must be a positive integer");
+  }
+
   const paragraphs = text.split(/\n\n+/);
   const blocks: string[] = [];
   let current = "";
@@ -40,16 +47,26 @@ export function splitIntoBlocks(
       current = candidate;
     } else {
       if (current) blocks.push(current.trim());
-      // If single paragraph is still too long, split by sentences
+      // If a single paragraph is still too long, split by sentences and then
+      // by hard bounded chunks. The hard split is important for long clauses
+      // without punctuation: no segment may exceed the model budget boundary.
       if (para.length > maxChars) {
-        const sentences = para.match(/[^.!?]+[.!?]+/g) || [para];
+        const sentences = para.match(/[^.!?]+(?:[.!?]+|$)/g) || [para];
         let sentBuf = "";
         for (const s of sentences) {
-          if ((sentBuf + s).length <= maxChars) {
-            sentBuf += s;
+          const sentence = s.trim();
+          if (!sentence) continue;
+          const candidate = sentBuf ? `${sentBuf} ${sentence}` : sentence;
+          if (candidate.length <= maxChars) {
+            sentBuf = candidate;
           } else {
             if (sentBuf) blocks.push(sentBuf.trim());
-            sentBuf = s;
+            if (sentence.length > maxChars) {
+              blocks.push(...splitLongText(sentence, maxChars));
+              sentBuf = "";
+            } else {
+              sentBuf = sentence;
+            }
           }
         }
         if (sentBuf) blocks.push(sentBuf.trim());
@@ -61,6 +78,25 @@ export function splitIntoBlocks(
   }
   if (current.trim()) blocks.push(current.trim());
   return blocks.filter(Boolean);
+}
+
+/** Split an oversized string without ever returning a block over maxChars. */
+function splitLongText(text: string, maxChars: number): string[] {
+  const chunks: string[] = [];
+  let remaining = text.trim();
+
+  while (remaining.length > maxChars) {
+    let cut = remaining.lastIndexOf(" ", maxChars);
+    // Avoid tiny fragments when the nearest whitespace is too early. A hard
+    // split is preferable to emitting an unbounded segment.
+    if (cut <= 0 || cut < Math.floor(maxChars * 0.5)) cut = maxChars;
+    const chunk = remaining.slice(0, cut).trim();
+    if (chunk) chunks.push(chunk);
+    remaining = remaining.slice(cut).trim();
+  }
+
+  if (remaining) chunks.push(remaining);
+  return chunks;
 }
 
 /**
@@ -148,4 +184,3 @@ export function checkAnchorAllowlist<T extends { id: string }>(
     resolved,
   };
 }
-

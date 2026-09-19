@@ -39,7 +39,9 @@ export function LandingMotion({ children }: { children: ReactNode }) {
         }, root);
         cleanup = () => context.revert();
       },
-    );
+    ).catch(() => {
+      // The page remains usable when the optional reveal bundle is unavailable.
+    });
     const stopMotion = () => {
       if (media.matches) cleanup?.();
     };
@@ -130,7 +132,7 @@ export function EvidencePreview() {
             style={{
               fontSize: 13,
               lineHeight: 1.8,
-              color: "#536a56",
+              color: "#5a536a",
               minHeight: 72,
             }}
           >
@@ -139,6 +141,7 @@ export function EvidencePreview() {
         </div>
         <div
           className={styles.previewTabs}
+          role="group"
           aria-label="Explore source passages"
         >
           {examples.map((item, index) => (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useDialogFocus } from "@/hooks/useDialogFocus";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,7 +9,6 @@ import type {
   AnchorRef,
   SuccessResponse,
   ErrorResponse,
-  ApiResponse,
 } from "@/types/evidence";
 import { LEGAL_NOTICE_TEXT } from "@/types/evidence";
 import { UploadZone } from "./UploadZone";
@@ -61,6 +60,8 @@ function DisclosureModal({ onClose }: { onClose: () => void }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="disclosure-title"
+          aria-describedby="disclosure-description"
+          tabIndex={-1}
         >
           <div className="flex items-center justify-between pb-4 border-b border-white/10">
             <div className="flex items-center gap-3">
@@ -72,7 +73,7 @@ function DisclosureModal({ onClose }: { onClose: () => void }) {
                   id="disclosure-title"
                   className="text-lg font-bold text-white tracking-tight"
                 >
-                  Zero-Persistence Architecture
+                  How your document is handled
                 </h2>
                 <p className="text-xs text-slate-400">
                   Data lifecycle and AI provider disclosure
@@ -91,7 +92,10 @@ function DisclosureModal({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          <div className="py-6 space-y-6 text-sm leading-relaxed text-slate-300">
+          <div
+            id="disclosure-description"
+            className="py-6 space-y-6 text-sm leading-relaxed text-slate-300"
+          >
             <section className="space-y-2">
               <h3 className="font-bold text-white flex items-center gap-2">
                 <Database className="w-4 h-4 text-amber-400" />
@@ -132,15 +136,13 @@ function DisclosureModal({ onClose }: { onClose: () => void }) {
             <section className="space-y-2">
               <h3 className="font-bold text-white flex items-center gap-2">
                 <Lock className="w-4 h-4 text-emerald-400" />
-                <span>Deterministic Anchors & Integrity</span>
+                <span>Check original passages & Integrity</span>
               </h3>
               <p className="text-xs text-slate-400 leading-relaxed">
                 Before sending prompts to any model, the server pre-indexes
                 every paragraph and assigns deterministic anchors (e.g.{" "}
                 <code>A-p001-b001</code>). When AI models return citations, the
-                server maps them against this ground-truth index. Any
-                hallucinated or unrecognized citations are automatically
-                stripped.
+                server maps them against this ground-truth index. Unrecognized citations cause the analysis to be rejected.
               </p>
             </section>
           </div>
@@ -183,6 +185,13 @@ export default function AnalysisWorkspace({
   const abortRef = useRef<AbortController | null>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, []);
+
   const handleModeChange = (m: Mode) => {
     setMode(m);
     setApiResult(null);
@@ -201,6 +210,7 @@ export default function AnalysisWorkspace({
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const isCurrentRequest = () => abortRef.current === controller;
 
     const form = new FormData();
     form.append("mode", mode);
@@ -220,19 +230,27 @@ export default function AnalysisWorkspace({
         signal: controller.signal,
       });
 
-      clearInterval(stepTimer);
+      const data: unknown = await res.json();
+      if (!isCurrentRequest()) return;
 
-      const data: ApiResponse = await res.json();
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid analysis response");
+      }
 
       if ("error" in data && data.error) {
         setApiError(data as ErrorResponse);
-        setTimeout(() => errorSummaryRef.current?.focus(), 100);
-      } else {
+        setTimeout(() => {
+          if (isCurrentRequest() || !abortRef.current) {
+            errorSummaryRef.current?.focus();
+          }
+        }, 100);
+      } else if ("result" in data && data.result) {
         setApiResult(data as SuccessResponse);
+      } else {
+        throw new Error("Invalid analysis response");
       }
     } catch (err) {
-      clearInterval(stepTimer);
-      if ((err as Error).name !== "AbortError") {
+      if (isCurrentRequest() && (err as Error).name !== "AbortError") {
         setApiError({
           requestId: "client-network-error",
           mode,
@@ -246,16 +264,25 @@ export default function AnalysisWorkspace({
               "A network error occurred. Please check your connection and try again.",
           },
         });
-        setTimeout(() => errorSummaryRef.current?.focus(), 100);
+        setTimeout(() => {
+          if (isCurrentRequest() || !abortRef.current) {
+            errorSummaryRef.current?.focus();
+          }
+        }, 100);
       }
     } finally {
-      setIsLoading(false);
-      abortRef.current = null;
+      clearInterval(stepTimer);
+      if (isCurrentRequest()) {
+        setIsLoading(false);
+        abortRef.current = null;
+      }
     }
   }, [mode, fileA, fileB, question]);
 
   const handleCancel = () => {
-    abortRef.current?.abort();
+    const controller = abortRef.current;
+    abortRef.current = null;
+    controller?.abort();
     setIsLoading(false);
   };
 
@@ -323,7 +350,7 @@ export default function AnalysisWorkspace({
             >
               <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
               <span className="hidden sm:inline">
-                Data Privacy & Architecture
+                Privacy & your documents
               </span>
               <span className="sm:hidden">Privacy</span>
             </button>
@@ -355,17 +382,17 @@ export default function AnalysisWorkspace({
             <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap pt-2">
               <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>100% In-Memory</span>
+                <span>No saved documents</span>
               </div>
               <span className="text-slate-700">•</span>
               <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
                 <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>Deterministic Anchors</span>
+                <span>Source passages</span>
               </div>
               <span className="text-slate-700">•</span>
               <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
                 <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Optional Second-Model Check</span>
+                <span>Optional additional check</span>
               </div>
             </div>
           </div>
@@ -388,7 +415,7 @@ export default function AnalysisWorkspace({
                     id={`tab-${m.id}`}
                     tabIndex={isActive ? 0 : -1}
                     aria-selected={isActive}
-                    aria-controls={`panel-${m.id}`}
+                    aria-controls="analysis-panel"
                     onClick={() => handleModeChange(m.id)}
                     onKeyDown={(event) => {
                       const index = MODES.findIndex((item) => item.id === m.id);
@@ -437,10 +464,11 @@ export default function AnalysisWorkspace({
         {/* Main Interaction Surface */}
         <div
           role="tabpanel"
-          id={`panel-${mode}`}
+          id="analysis-panel"
           aria-labelledby={`tab-${mode}`}
           className="space-y-6"
         >
+          {!isLoading && !apiResult && !apiError && <p className="workspace-guide">{mode === "compare" ? "Add the original and revised versions. Review the changes, then open their source passages." : mode === "ask" ? "Add a document and ask a specific question. Answers use only the text you provide." : "Add your document or choose a sample. Get a plain-language clause map and a checklist for your review."}</p>}
           {/* Document Upload & Input Area */}
           {!isLoading && !apiResult && !apiError && (
             <motion.div
@@ -599,6 +627,9 @@ export default function AnalysisWorkspace({
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
+              <p role="status" aria-live="polite" className="sr-only">
+                Analysis complete. Your {apiResult.mode} results are ready.
+              </p>
               {/* Back / Reset Ribbon */}
               <div className="flex items-center justify-between flex-wrap gap-3 pb-2">
                 <button

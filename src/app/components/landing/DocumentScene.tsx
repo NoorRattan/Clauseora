@@ -61,7 +61,7 @@ function Sculpture({ active }: { active: boolean }) {
       <mesh castShadow receiveShadow>
         <torusGeometry args={[1.86, 0.3, 32, 120]} />
         <meshPhysicalMaterial
-          color="#90b39a"
+          color="#9b90b3"
           metalness={0.52}
           roughness={0.19}
           clearcoat={1}
@@ -72,7 +72,7 @@ function Sculpture({ active }: { active: boolean }) {
       <mesh rotation={[0, 0.2, 0.1]}>
         <torusGeometry args={[2.36, 0.009, 8, 100]} />
         <meshStandardMaterial
-          color="#9cbd9c"
+          color="#a79cbd"
           metalness={0.65}
           roughness={0.4}
           transparent
@@ -81,7 +81,7 @@ function Sculpture({ active }: { active: boolean }) {
       </mesh>
       <mesh position={[1.4, 1.1, 0.25]} castShadow>
         <sphereGeometry args={[0.075, 20, 20]} />
-        <meshStandardMaterial color="#ddeed8" metalness={0.7} roughness={0.1} />
+        <meshStandardMaterial color="#dfd8ee" metalness={0.7} roughness={0.1} />
       </mesh>
     </group>
   );
@@ -117,7 +117,7 @@ export default function DocumentScene({
         <ambientLight intensity={0.25} />
         <directionalLight
           position={[3, 5, 4]}
-          color="#efffe4"
+          color="#ede4ff"
           intensity={2.5}
           castShadow
           shadow-mapSize={[512, 512]}
@@ -127,13 +127,13 @@ export default function DocumentScene({
             intensity={4}
             position={[-4, 3, 3]}
             scale={[4, 6, 1]}
-            color="#e1eed1"
+            color="#dad1ee"
           />
           <Lightformer
             intensity={2}
             position={[4, -1, 2]}
             scale={[2, 5, 1]}
-            color="#95d6af"
+            color="#aa95d6"
           />
           <Lightformer
             intensity={3}
@@ -159,7 +159,7 @@ export default function DocumentScene({
             size={1.4}
             speed={0.15}
             opacity={0.3}
-            color="#d0e4be"
+            color="#cabee4"
           />
         )}
         {effects && (
