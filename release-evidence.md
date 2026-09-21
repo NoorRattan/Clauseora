@@ -2,13 +2,13 @@
 
 | Field | Value |
 |---|---|
-| Revision | REV-004 |
-| Verification date | 2026-09-20 |
+| Revision | REV-005 |
+| Verification date | 2026-09-21 |
 | Primary analyzer | Groq (`openai/gpt-oss-120b` by default), temperature 0 |
 | Secondary verifier | Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`) |
 | Supported formats | Text-layer PDF, DOCX, TXT |
 | Admission limits | 8 MB, 150 PDF pages, 120,000 extracted characters, 6,000 estimated input tokens |
-| Test status | 15 test files, 151 tests passed |
+| Test status | 16 test files, 156 tests passed |
 | Production status | Vercel deployment returned HTTP 200 for the landing page and synthetic sample endpoint |
 
 ## Automated verification
@@ -23,7 +23,7 @@ npm run build
 npm audit --audit-level=high
 ```
 
-The test suite covers deterministic anchors, upload and extraction boundaries, safe rendering, no-persistence behavior, provider contracts, Simplify/Compare/Ask grounding, prompt-injection resistance, cross-model verification, model-output invariants, and request-rate defenses.
+The test suite covers deterministic anchors, upload and extraction boundaries, safe rendering, no-persistence behavior, provider contracts, Simplify/Compare/Ask grounding, prompt-injection resistance, cross-model verification, model-output invariants, sliding-window request defenses, provider circuit breakers, and bounded public-sample caching.
 
 ## Security and evidence guarantees
 
@@ -35,6 +35,16 @@ The test suite covers deterministic anchors, upload and extraction boundaries, s
 6. **Provider minimization** — Cloudflare receives only selected high-impact claims and short source excerpts; it does not receive the full document.
 7. **No application persistence** — the app does not store uploaded documents, document history, or model results in a database or object storage.
 8. **Fixed legal boundary** — every terminal API response includes the application-owned legal information notice.
+
+## Efficiency and resilience guarantees
+
+1. **Concurrent Compare preprocessing** — independent A/B reads and extraction run concurrently only after the existing request and signature validation gates.
+2. **Bounded sliding-window throttling** — each client retains at most ten accepted timestamps, the key map is capped at 10,000 entries, and global stale-entry scans are periodic rather than per-request.
+3. **Provider circuit breakers** — repeated transient Groq or Cloudflare failures open a short-lived circuit; one half-open probe determines recovery. No document, prompt, or output content is stored in breaker state.
+4. **No fabricated fallback** — an open primary circuit returns the existing safe unavailable response; an open verifier circuit produces the existing visible `single_model` state.
+5. **Request-scoped reuse** — model anchor IDs are collected once and reused for validation and evidence resolution.
+6. **Privacy-safe timing** — successful responses include phase durations through `Server-Timing`, with no document or filename data.
+7. **Public-data-only cache** — the four synthetic sample fixtures use a four-entry, one-hour TTL/LRU cache plus ETag and CDN revalidation headers. `/api/process` remains strictly `no-store` and never uses this cache.
 
 ## Deployment
 

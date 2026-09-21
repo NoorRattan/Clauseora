@@ -20,12 +20,18 @@ import {
   compareResponseSchema,
   simplifyResponseSchema,
 } from "@/lib/schemas";
+import { CircuitBreaker } from "@/lib/circuit-breaker";
 
 export const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
 /** Conservative token budget for the admitted document (free tier: 8K TPM) */
 export const GROQ_MAX_INPUT_TOKENS = 6_000;
 export const GROQ_MAX_OUTPUT_TOKENS = 4_096;
 export const GROQ_TIMEOUT_MS = 30_000;
+
+const groqCircuitBreaker = new CircuitBreaker({
+  failureThreshold: 3,
+  cooldownMs: 30_000,
+});
 
 /** Rough character-to-token estimate (conservative: 3 chars per token). */
 export function estimateTokens(text: string): number {
@@ -67,7 +73,6 @@ export async function callGroq(
   if (!apiKey) {
     return { ok: false, error: "PRIMARY_UNAVAILABLE", details: "GROQ_API_KEY not set" };
   }
-
   // A single bounded attempt keeps the route inside its serverless deadline
   // and avoids silently duplicating a paid/provider request on retry.
   const client = new Groq({
@@ -84,6 +89,9 @@ export async function callGroq(
   if (estimatedInput > GROQ_MAX_INPUT_TOKENS) {
     return { ok: false, error: "DOCUMENT_TOO_LONG", details: "Token budget exceeded before API call" };
   }
+  if (!groqCircuitBreaker.canRequest()) {
+    return { ok: false, error: "PRIMARY_UNAVAILABLE", details: "provider circuit open" };
+  }
 
   let rawContent: string;
   try {
@@ -99,12 +107,20 @@ export async function callGroq(
     });
 
     rawContent = completion.choices[0]?.message?.content ?? "";
+    groqCircuitBreaker.recordSuccess();
 
     if (!rawContent) {
       return { ok: false, error: "MODEL_REFUSAL" };
     }
   } catch (err: unknown) {
     const errorText = getErrorText(err);
+    if (isTransientProviderError(err, errorText)) {
+      groqCircuitBreaker.recordFailure();
+    } else {
+      // A non-transient provider response proves the endpoint is reachable;
+      // it must not keep a half-open probe occupied.
+      groqCircuitBreaker.recordSuccess();
+    }
     if (isRateLimitError(err, errorText)) {
       return { ok: false, error: "PRIMARY_QUOTA_EXHAUSTED" };
     }
@@ -353,4 +369,14 @@ function isRateLimitError(error: unknown, errorText: string): boolean {
 function isTimeoutError(error: unknown, errorText: string): boolean {
   const name = isRecord(error) && typeof error.name === "string" ? error.name : "";
   return /timeout|timedout|etimedout|abort/i.test(`${name} ${errorText}`);
+}
+
+function isTransientProviderError(error: unknown, errorText: string): boolean {
+  const status = isRecord(error) && typeof error.status === "number" ? error.status : undefined;
+  if (status === 408 || status === 429 || (status !== undefined && status >= 500)) return true;
+  if (isTimeoutError(error, errorText)) return true;
+  if (status === undefined) {
+    return /network|fetch|socket|connection|econn|unavailable/i.test(errorText);
+  }
+  return false;
 }

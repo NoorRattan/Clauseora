@@ -4,12 +4,86 @@ export const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 export const RATE_LIMIT_MAX_REQUESTS = 10;
 
 type RateLimitEntry = {
-  windowStartedAt: number;
-  count: number;
+  acceptedAt: number[];
+  lastSeenAt: number;
 };
 
-const rateLimitEntries = new Map<string, RateLimitEntry>();
 const MAX_TRACKED_KEYS = 10_000;
+const CLEANUP_INTERVAL = 256;
+
+export type RateLimitResult =
+  | { allowed: true }
+  | { allowed: false; retryAfterSeconds: number };
+
+/**
+ * Bounded sliding-window limiter. Each key stores at most `maxRequests`
+ * timestamps, and stale-key scans run periodically instead of on every call.
+ */
+export class SlidingWindowRateLimiter {
+  private readonly entries = new Map<string, RateLimitEntry>();
+  private operations = 0;
+
+  constructor(
+    private readonly windowMs: number,
+    private readonly maxRequests: number,
+    private readonly maxTrackedKeys: number,
+    private readonly cleanupInterval = CLEANUP_INTERVAL,
+  ) {
+    if (windowMs < 1 || maxRequests < 1 || maxTrackedKeys < 1 || cleanupInterval < 1) {
+      throw new Error("Rate limiter bounds must be positive.");
+    }
+  }
+
+  check(key: string, now = Date.now()): RateLimitResult {
+    this.operations += 1;
+    if (this.operations % this.cleanupInterval === 0) this.pruneExpiredEntries(now);
+
+    const cutoff = now - this.windowMs;
+    const current = this.entries.get(key);
+    const acceptedAt = current?.acceptedAt.filter((timestamp) => timestamp > cutoff) ?? [];
+
+    // Refresh insertion order so the bound evicts the least-recently-seen key.
+    if (current) this.entries.delete(key);
+    const entry: RateLimitEntry = { acceptedAt, lastSeenAt: now };
+    this.entries.set(key, entry);
+
+    if (acceptedAt.length >= this.maxRequests) {
+      this.enforceMapBound();
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.max(
+          1,
+          Math.ceil((acceptedAt[0] + this.windowMs - now) / 1000),
+        ),
+      };
+    }
+
+    acceptedAt.push(now);
+    this.enforceMapBound();
+    return { allowed: true };
+  }
+
+  private pruneExpiredEntries(now: number): void {
+    const cutoff = now - this.windowMs;
+    for (const [key, entry] of this.entries) {
+      if (entry.lastSeenAt <= cutoff) this.entries.delete(key);
+    }
+  }
+
+  private enforceMapBound(): void {
+    while (this.entries.size > this.maxTrackedKeys) {
+      const oldestKey = this.entries.keys().next().value as string | undefined;
+      if (!oldestKey) return;
+      this.entries.delete(oldestKey);
+    }
+  }
+}
+
+const processRateLimiter = new SlidingWindowRateLimiter(
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX_REQUESTS,
+  MAX_TRACKED_KEYS,
+);
 
 /**
  * Browser callers must be same-origin. Requests without Origin remain usable
@@ -34,29 +108,8 @@ export function isSameOriginRequest(request: { url: string; headers: Headers }):
 export function checkRateLimit(
   headers: Headers,
   now = Date.now(),
-): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
-  pruneExpiredEntries(now);
-
-  const key = getClientKey(headers);
-  const current = rateLimitEntries.get(key);
-  if (!current || now - current.windowStartedAt >= RATE_LIMIT_WINDOW_MS) {
-    rateLimitEntries.set(key, { windowStartedAt: now, count: 1 });
-    enforceMapBound();
-    return { allowed: true };
-  }
-
-  if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
-    return {
-      allowed: false,
-      retryAfterSeconds: Math.max(
-        1,
-        Math.ceil((RATE_LIMIT_WINDOW_MS - (now - current.windowStartedAt)) / 1000),
-      ),
-    };
-  }
-
-  current.count += 1;
-  return { allowed: true };
+): RateLimitResult {
+  return processRateLimiter.check(getClientKey(headers), now);
 }
 
 function getClientKey(headers: Headers): string {
@@ -71,21 +124,5 @@ function getClientKey(headers: Headers): string {
     return candidate;
   }
   return "unknown-client";
-}
-
-function pruneExpiredEntries(now: number): void {
-  for (const [key, entry] of rateLimitEntries) {
-    if (now - entry.windowStartedAt >= RATE_LIMIT_WINDOW_MS) {
-      rateLimitEntries.delete(key);
-    }
-  }
-}
-
-function enforceMapBound(): void {
-  while (rateLimitEntries.size > MAX_TRACKED_KEYS) {
-    const oldestKey = rateLimitEntries.keys().next().value as string | undefined;
-    if (!oldestKey) return;
-    rateLimitEntries.delete(oldestKey);
-  }
 }
 

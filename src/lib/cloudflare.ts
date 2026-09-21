@@ -8,6 +8,7 @@
  */
 
 import type { AnchorRef, Verification, VerificationIssue } from "@/types/evidence";
+import { CircuitBreaker } from "@/lib/circuit-breaker";
 
 export const CF_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 
@@ -21,6 +22,11 @@ export const HIGH_IMPACT_KINDS = [
 export const CF_MAX_CLAIMS = 5;
 /** Maximum excerpt chars sent per claim. */
 export const CF_MAX_EXCERPT_CHARS = 400;
+
+const cloudflareCircuitBreaker = new CircuitBreaker({
+  failureThreshold: 3,
+  cooldownMs: 30_000,
+});
 
 export type ClaimToVerify = {
   claimPath: string;
@@ -48,12 +54,16 @@ export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult>
   if (claims.length === 0) {
     return { ok: true, verdicts: [] };
   }
+  if (!cloudflareCircuitBreaker.canRequest()) {
+    return { ok: false, reason: "unavailable" };
+  }
 
   const url = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId.trim())}/ai/run/${CF_MODEL}`;
 
   const prompt = buildVerificationPrompt(claims);
 
   let responsePayload: unknown;
+  let providerReached = false;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
@@ -72,8 +82,23 @@ export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult>
       }),
       signal: controller.signal,
     });
-    if (res.status === 429) return { ok: false, reason: "quota" };
-    if (!res.ok) return { ok: false, reason: "unavailable" };
+    if (res.status === 429) {
+      cloudflareCircuitBreaker.recordFailure();
+      return { ok: false, reason: "quota" };
+    }
+    if (!res.ok) {
+      if (res.status === 408 || res.status >= 500) {
+        cloudflareCircuitBreaker.recordFailure();
+      } else {
+        cloudflareCircuitBreaker.recordSuccess();
+      }
+      return { ok: false, reason: "unavailable" };
+    }
+
+    // A successful HTTP response proves the provider is reachable. Invalid
+    // verdict JSON is handled fail-closed below but is not an outage signal.
+    cloudflareCircuitBreaker.recordSuccess();
+    providerReached = true;
 
     const json = (await res.json()) as {
       result?: { response?: unknown };
@@ -81,6 +106,7 @@ export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult>
     };
     responsePayload = json.result?.response ?? "";
   } catch {
+    if (!providerReached) cloudflareCircuitBreaker.recordFailure();
     return { ok: false, reason: "unavailable" };
   } finally {
     clearTimeout(timeout);

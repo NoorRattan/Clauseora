@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import { BoundedTtlCache } from "@/lib/bounded-ttl-cache";
 
 // Allowed synthetic fixture samples
 const SAMPLE_FILES: Record<string, { filename: string; mimeType: string }> = {
@@ -21,6 +23,18 @@ const SAMPLE_FILES: Record<string, { filename: string; mimeType: string }> = {
     mimeType: "application/pdf",
   },
 };
+
+type CachedSample = { buffer: Buffer; etag: string };
+
+// Public synthetic fixtures only. User uploads and analysis results never use
+// this cache and remain covered by the no-persistence contract.
+const sampleCache = new BoundedTtlCache<string, CachedSample>(
+  Object.keys(SAMPLE_FILES).length,
+  60 * 60 * 1000,
+);
+
+const PUBLIC_CACHE_CONTROL =
+  "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -43,14 +57,32 @@ export async function GET(req: NextRequest) {
   const filePath = path.resolve(process.cwd(), "tests", "fixtures", sampleMeta.filename);
 
   try {
-    const fileBuffer = await fs.readFile(filePath);
-    return new NextResponse(fileBuffer, {
+    let cached = sampleCache.get(sampleKey);
+    if (!cached) {
+      const buffer = await fs.readFile(filePath);
+      cached = {
+        buffer,
+        etag: `"${createHash("sha256").update(buffer).digest("base64url")}"`,
+      };
+      sampleCache.set(sampleKey, cached);
+    }
+
+    const responseHeaders = {
+      "Content-Type": sampleMeta.mimeType,
+      "Content-Disposition": `attachment; filename="${sampleMeta.filename}"`,
+      "Cache-Control": PUBLIC_CACHE_CONTROL,
+      ETag: cached.etag,
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+    };
+
+    if (req.headers.get("if-none-match") === cached.etag) {
+      return new NextResponse(null, { status: 304, headers: responseHeaders });
+    }
+
+    return new NextResponse(new Uint8Array(cached.buffer), {
       headers: {
-        "Content-Type": sampleMeta.mimeType,
-        "Content-Disposition": `attachment; filename="${sampleMeta.filename}"`,
-        "Cache-Control": "public, max-age=3600",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+        ...responseHeaders,
       },
     });
   } catch {

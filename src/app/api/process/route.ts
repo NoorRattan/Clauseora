@@ -105,6 +105,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 }
 
 async function processRequest(req: NextRequest, requestId: string): Promise<NextResponse> {
+  const requestStartedAt = performance.now();
   // ─── Parse multipart form ───────────────────────────────────────────────────
   let formData: FormData;
   try {
@@ -131,20 +132,31 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
   if (!(fileABlob instanceof File)) {
     return errorResponse(requestId, mode, "WRONG_FILE_COUNT", "documentA is required.");
   }
-  const bufA = Buffer.from(await fileABlob.arrayBuffer());
+
+  let fileBBlob: File | null = null;
+  if (validatedB) {
+    const candidate = formData.get("documentB");
+    if (!(candidate instanceof File)) {
+      return errorResponse(requestId, mode, "WRONG_FILE_COUNT", "Compare mode requires documentB.");
+    }
+    fileBBlob = candidate;
+  }
+
+  const readStartedAt = performance.now();
+  const [arrayBufferA, arrayBufferB] = await Promise.all([
+    fileABlob.arrayBuffer(),
+    fileBBlob ? fileBBlob.arrayBuffer() : Promise.resolve(null),
+  ]);
+  const readDuration = performance.now() - readStartedAt;
+  const bufA = Buffer.from(arrayBufferA);
+  const bufB = arrayBufferB ? Buffer.from(arrayBufferB) : null;
 
   const sigCheckA = verifySignature(bufA, validatedA.extension, fileABlob.type);
   if (!sigCheckA.ok) {
     return errorResponse(requestId, mode, sigCheckA.error.code, sigCheckA.error.message);
   }
 
-  let bufB: Buffer | null = null;
-  if (validatedB) {
-    const fileBBlob = formData.get("documentB");
-    if (!(fileBBlob instanceof File)) {
-      return errorResponse(requestId, mode, "WRONG_FILE_COUNT", "Compare mode requires documentB.");
-    }
-    bufB = Buffer.from(await fileBBlob.arrayBuffer());
+  if (validatedB && fileBBlob && bufB) {
     const sigCheckB = verifySignature(bufB, validatedB.extension, fileBBlob.type);
     if (!sigCheckB.ok) {
       return errorResponse(requestId, mode, sigCheckB.error.code, sigCheckB.error.message);
@@ -152,15 +164,21 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
   }
 
   // ─── 3. Extract segments with deterministic anchors ────────────────────────
-  const extractionA = await extractBuffer(bufA, validatedA.extension, "A");
+  const extractionStartedAt = performance.now();
+  const [extractionA, extractionB] = await Promise.all([
+    extractBuffer(bufA, validatedA.extension, "A"),
+    bufB && validatedB
+      ? extractBuffer(bufB, validatedB.extension, "B")
+      : Promise.resolve(null),
+  ]);
+  const extractionDuration = performance.now() - extractionStartedAt;
   if (!extractionA.ok) {
     return errorResponse(requestId, mode, extractionA.error, safeExtractMessage(extractionA.error));
   }
 
   let segmentsB: Segment[] | null = null;
   let pageCountB: number | undefined;
-  if (bufB && validatedB) {
-    const extractionB = await extractBuffer(bufB, validatedB.extension, "B");
+  if (extractionB) {
     if (!extractionB.ok) {
       return errorResponse(requestId, mode, extractionB.error, safeExtractMessage(extractionB.error));
     }
@@ -213,7 +231,9 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
   }
 
   // ─── 5. Call Groq primary ──────────────────────────────────────────────────
+  const primaryStartedAt = performance.now();
   const groqResult = await callGroq(mode, segmentsA, segmentsB, question, systemPrompt);
+  const primaryDuration = performance.now() - primaryStartedAt;
   if (!groqResult.ok) {
     return errorResponse(requestId, mode, groqResult.error, safeGroqMessage(groqResult.error));
   }
@@ -235,9 +255,10 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
     }
   }
 
+  const allUsedIds = collectAllAnchorIds(modeResult, actionPack, mode);
   const anchorValidation = validateAnchors(
     modeResult,
-    actionPack,
+    allUsedIds,
     allAnchorIds,
     mode,
     anchorIdsA,
@@ -248,7 +269,6 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
   }
 
   // ─── 7. Resolve anchor IDs → canonical excerpts ────────────────────────────
-  const allUsedIds = collectAllAnchorIds(modeResult, actionPack, mode);
   const resolvedAnchors: AnchorRef[] = [];
   for (const id of allUsedIds) {
     const seg = evidenceIndex.get(id);
@@ -266,7 +286,9 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
   const highImpactIds = selectHighImpactIds(modeResult, mode);
   const claimTexts = buildClaimTexts(modeResult, mode);
   const claimsToVerify = selectClaimsForVerification(resolvedAnchors, highImpactIds, claimTexts);
+  const verifierStartedAt = performance.now();
   const cfResult = await callCloudflare(claimsToVerify);
+  const verifierDuration = performance.now() - verifierStartedAt;
 
   // ─── 9. Derive verification status ────────────────────────────────────────
   const verification = deriveVerification(cfResult);
@@ -302,7 +324,16 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
 
   return NextResponse.json(response, {
     status: 200,
-    headers: securityHeaders(),
+    headers: {
+      ...securityHeaders(),
+      "Server-Timing": formatServerTiming({
+        read: readDuration,
+        extract: extractionDuration,
+        primary: primaryDuration,
+        verify: verifierDuration,
+        total: performance.now() - requestStartedAt,
+      }),
+    },
   });
 }
 
@@ -347,14 +378,13 @@ function getSystemPrompt(
 /** Validate that all anchor IDs in the model output exist in the allowlist. */
 function validateAnchors(
   result: SimplifyResult | CompareResult | AskResult,
-  actionPack: ActionPack,
+  usedIds: string[],
   allowedIds: string[],
   mode: Mode,
   allowedIdsA: string[] = [],
   allowedIdsB: string[] = [],
 ): { ok: boolean } {
   const allowed = new Set(allowedIds);
-  const usedIds = collectAllAnchorIds(result, actionPack, mode);
   for (const id of usedIds) {
     if (!allowed.has(id)) return { ok: false };
   }
@@ -372,6 +402,12 @@ function validateAnchors(
   }
 
   return { ok: true };
+}
+
+function formatServerTiming(durations: Record<string, number>): string {
+  return Object.entries(durations)
+    .map(([name, duration]) => `${name};dur=${Math.max(0, duration).toFixed(1)}`)
+    .join(", ");
 }
 
 /** Collect every anchor ID referenced in the model output. */

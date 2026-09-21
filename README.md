@@ -77,6 +77,17 @@ No database, no object storage, no persistent model history.
 
 ---
 
+## Efficiency and Resilience
+
+- Compare-mode files are read and extracted concurrently after both signatures pass validation.
+- The anonymous processing boundary uses a bounded sliding-window limiter with periodic stale-key cleanup.
+- Groq and Cloudflare calls have independent timeouts and in-process circuit breakers, preventing repeated calls to an unhealthy provider while preserving the existing fail-closed responses.
+- Anchor IDs are collected once per response and reused for allowlist validation and canonical evidence resolution.
+- Successful processing responses expose privacy-safe `Server-Timing` durations for reading, extraction, primary analysis, verification, and total time.
+- A four-entry TTL/LRU cache and CDN validators apply only to the public synthetic sample downloads. Uploaded documents, questions, prompts, and model results are never cached.
+
+---
+
 ## Limitations
 
 - No OCR or image-only PDF support. Text-layer PDFs, DOCX, and TXT only.
@@ -140,14 +151,14 @@ Configure `GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_AI_TOKEN` in 
 ## Verification
 
 ```bash
-npm test                 # 15 test files, 151 tests
+npm test                 # 16 test files, 156 tests
 npm run lint
 npx tsc --noEmit
 npm run build
 npm audit --audit-level=high
 ```
 
-The current test suite passes, the production build completes successfully, and the dependency audit reports no vulnerabilities.
+The current suite contains 16 test files and 156 tests. It includes deterministic circuit-breaker, sliding-window, bounded-cache, and conditional sample-delivery coverage alongside the existing evidence and security contracts.
 
 ---
 
