@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -73,7 +71,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   background: var(--bg-base);
   color: var(--text-primary);
   line-height: 1.6;
@@ -760,7 +758,7 @@ code, pre {
 .text-muted { color: var(--text-secondary); }
 .text-sm    { font-size: 0.875rem; }
 .text-xs    { font-size: 0.75rem; }
-.font-mono  { font-family: 'JetBrains Mono', monospace; }
+.font-mono  { font-family: var(--font-jetbrains-mono), monospace; }
 
 .gap-1 { gap: 0.25rem; }
 .gap-2 { gap: 0.5rem; }

@@ -1,5 +1,7 @@
 /** Small, dependency-free request guards for the anonymous API boundary. */
 
+import { createHash } from "node:crypto";
+
 export const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 export const RATE_LIMIT_MAX_REQUESTS = 10;
 
@@ -102,8 +104,9 @@ export function isSameOriginRequest(request: { url: string; headers: Headers }):
 
 /**
  * Best-effort per-client throttling for a stateless deployment. The map is
- * bounded and stores only a short-lived network identifier, never document
- * content, prompts, questions, or model output.
+ * bounded and stores only a short-lived SHA-256 digest of the network
+ * identifier, never the raw address, document content, prompts, questions,
+ * or model output.
  */
 export function checkRateLimit(
   headers: Headers,
@@ -121,8 +124,7 @@ function getClientKey(headers: Headers): string {
   // Reject arbitrary header values as keys so an attacker cannot grow the map
   // with unbounded strings. Invalid/missing values share a bounded bucket.
   if (candidate && candidate.length <= 128 && /^[a-zA-Z0-9:.\-]+$/.test(candidate)) {
-    return candidate;
+    return createHash("sha256").update(candidate).digest("hex");
   }
   return "unknown-client";
 }
-

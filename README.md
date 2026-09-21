@@ -151,14 +151,11 @@ Configure `GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_AI_TOKEN` in 
 ## Verification
 
 ```bash
-npm test                 # 16 test files, 156 tests
-npm run lint
-npx tsc --noEmit
-npm run build
-npm audit --audit-level=high
+npm run verify           # lint, types, coverage gates, build, and dependency audit
+npm test                 # 18 test files, 166 tests
 ```
 
-The current suite contains 16 test files and 156 tests. It includes deterministic circuit-breaker, sliding-window, bounded-cache, and conditional sample-delivery coverage alongside the existing evidence and security contracts.
+The current suite contains 18 test files and 166 tests. It exercises the production route handler and both provider adapters, plus deterministic circuit-breaker, sliding-window, bounded-cache, conditional sample delivery, evidence, and security contracts. CI enforces minimum server coverage of 77% statements, 61% branches, 85% functions, and 80% lines. See [SECURITY.md](SECURITY.md) for the privacy and threat model.
 
 ---
 

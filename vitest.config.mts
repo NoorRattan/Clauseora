@@ -12,12 +12,17 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
-      include: ["src/lib/**/*.ts", "src/types/**/*.ts"],
+      include: ["src/lib/**/*.ts", "src/app/api/**/*.ts"],
+      exclude: ["src/lib/prompts/**/*.ts"],
+      thresholds: {
+        statements: 77,
+        branches: 61,
+        functions: 85,
+        lines: 80,
+      },
     },
   },
   resolve: {
-    alias: {
-      "@": path.resolve(configDirectory, "./src"),
-    },
+    alias: { "@": path.resolve(configDirectory, "./src") },
   },
 });

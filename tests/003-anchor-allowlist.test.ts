@@ -18,50 +18,24 @@ import type {
   ActionPack,
   AnchorRef,
 } from "@/types/evidence";
+import { collectAllAnchorIds, validateAnchors } from "@/lib/process-pipeline";
 
-// ─── Re-implement the validation logic under test ─────────────────────────────
-// We test the pure logic extracted so unit tests don't spin up Next.js.
-// This mirrors route.ts collectAllAnchorIds / validateAnchors exactly.
-
-function collectAllAnchorIds(
-  result: SimplifyResult | CompareResult | AskResult,
-  actionPack: ActionPack,
-  mode: "simplify" | "compare" | "ask"
-): string[] {
-  const ids: string[] = [];
-  if (mode === "simplify") {
-    const r = result as SimplifyResult;
-    for (const clause of r.clauses ?? []) {
-      ids.push(...(clause.anchorIds ?? []));
-      for (const item of clause.items ?? []) ids.push(...(item.anchorIds ?? []));
-    }
-  } else if (mode === "compare") {
-    const r = result as CompareResult;
-    for (const change of r.changes ?? []) {
-      ids.push(...(change.anchorIdsA ?? []));
-      ids.push(...(change.anchorIdsB ?? []));
-    }
-  } else {
-    const r = result as AskResult;
-    ids.push(...(r.anchorIds ?? []));
-  }
-  for (const item of actionPack.checklist ?? []) ids.push(...(item.anchorIds ?? []));
-  for (const q of actionPack.lawyerQuestions ?? []) ids.push(...(q.anchorIds ?? []));
-  return [...new Set(ids)];
-}
-
-function validateAnchors(
+function validateResultAnchors(
   result: SimplifyResult | CompareResult | AskResult,
   actionPack: ActionPack,
   allowedIds: string[],
-  mode: "simplify" | "compare" | "ask"
+  mode: "simplify" | "compare" | "ask",
+  allowedIdsA: string[] = [],
+  allowedIdsB: string[] = [],
 ): { ok: boolean } {
-  const allowed = new Set(allowedIds);
-  const usedIds = collectAllAnchorIds(result, actionPack, mode);
-  for (const id of usedIds) {
-    if (!allowed.has(id)) return { ok: false };
-  }
-  return { ok: true };
+  return validateAnchors(
+    result,
+    collectAllAnchorIds(result, actionPack, mode),
+    allowedIds,
+    mode,
+    allowedIdsA,
+    allowedIdsB,
+  );
 }
 
 const EMPTY_AP: ActionPack = { checklist: [], lawyerQuestions: [] };
@@ -90,7 +64,7 @@ describe("TEST-003 · Simplify anchor allowlist", () => {
         },
       ],
     };
-    expect(validateAnchors(result, EMPTY_AP, allowed, "simplify").ok).toBe(true);
+    expect(validateResultAnchors(result, EMPTY_AP, allowed, "simplify").ok).toBe(true);
   });
 
   it("fails when one item uses an unknown anchor ID", () => {
@@ -112,7 +86,7 @@ describe("TEST-003 · Simplify anchor allowlist", () => {
         },
       ],
     };
-    expect(validateAnchors(result, EMPTY_AP, allowed, "simplify").ok).toBe(false);
+    expect(validateResultAnchors(result, EMPTY_AP, allowed, "simplify").ok).toBe(false);
   });
 
   it("fails when clause anchorIds contains an unknown ID", () => {
@@ -127,7 +101,7 @@ describe("TEST-003 · Simplify anchor allowlist", () => {
         },
       ],
     };
-    expect(validateAnchors(result, EMPTY_AP, allowed, "simplify").ok).toBe(false);
+    expect(validateResultAnchors(result, EMPTY_AP, allowed, "simplify").ok).toBe(false);
   });
 });
 
@@ -152,7 +126,7 @@ describe("TEST-003 · Compare anchor allowlist", () => {
         },
       ],
     };
-    expect(validateAnchors(result, EMPTY_AP, allAllowed, "compare").ok).toBe(true);
+    expect(validateResultAnchors(result, EMPTY_AP, allAllowed, "compare", allowedA, allowedB).ok).toBe(true);
   });
 
   it("fails if a change uses a B anchor ID that wasn't in the allowlist", () => {
@@ -169,12 +143,10 @@ describe("TEST-003 · Compare anchor allowlist", () => {
         },
       ],
     };
-    expect(validateAnchors(result, EMPTY_AP, allAllowed, "compare").ok).toBe(false);
+    expect(validateResultAnchors(result, EMPTY_AP, allAllowed, "compare", allowedA, allowedB).ok).toBe(false);
   });
 
   it("fails if a cross-document ID is used (B ID in A field)", () => {
-    // The allowlist prevents both A-in-B and B-in-A since we validate
-    // against the merged allowlist. Regardless, unknown IDs fail.
     const result: CompareResult = {
       changes: [
         {
@@ -188,9 +160,7 @@ describe("TEST-003 · Compare anchor allowlist", () => {
         },
       ],
     };
-    // This passes anchor validation (ID is in combined allowlist).
-    // Cross-document field semantics are a display concern, not a security one here.
-    expect(typeof validateAnchors(result, EMPTY_AP, allAllowed, "compare").ok).toBe("boolean");
+    expect(validateResultAnchors(result, EMPTY_AP, allAllowed, "compare", allowedA, allowedB).ok).toBe(false);
   });
 });
 
@@ -206,7 +176,7 @@ describe("TEST-003 · Ask anchor allowlist", () => {
       notEstablished: [],
       anchorIds: ["A-p1-b0"],
     };
-    expect(validateAnchors(result, EMPTY_AP, allowed, "ask").ok).toBe(true);
+    expect(validateResultAnchors(result, EMPTY_AP, allowed, "ask").ok).toBe(true);
   });
 
   it("passes not_found result with empty anchors", () => {
@@ -216,7 +186,7 @@ describe("TEST-003 · Ask anchor allowlist", () => {
       notEstablished: [],
       anchorIds: [],
     };
-    expect(validateAnchors(result, EMPTY_AP, allowed, "ask").ok).toBe(true);
+    expect(validateResultAnchors(result, EMPTY_AP, allowed, "ask").ok).toBe(true);
   });
 
   it("fails if not_found result references an anchor (model hallucinated ID)", () => {
@@ -226,7 +196,7 @@ describe("TEST-003 · Ask anchor allowlist", () => {
       notEstablished: [],
       anchorIds: ["A-p9-b99"],   // ← unknown
     };
-    expect(validateAnchors(result, EMPTY_AP, allowed, "ask").ok).toBe(false);
+    expect(validateResultAnchors(result, EMPTY_AP, allowed, "ask").ok).toBe(false);
   });
 });
 
@@ -253,7 +223,7 @@ describe("TEST-003 · ActionPack anchor allowlist", () => {
       ],
       lawyerQuestions: [],
     };
-    expect(validateAnchors(result, ap, allowed, "ask").ok).toBe(false);
+    expect(validateResultAnchors(result, ap, allowed, "ask").ok).toBe(false);
   });
 });
 

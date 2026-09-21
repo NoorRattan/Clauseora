@@ -12,12 +12,6 @@ import { CircuitBreaker } from "@/lib/circuit-breaker";
 
 export const CF_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 
-/** High-impact claim kinds that trigger cross-checking. */
-export const HIGH_IMPACT_KINDS = [
-  "money",
-  "deadline",
-] as const;
-
 /** Maximum claims sent to the verifier per request. */
 export const CF_MAX_CLAIMS = 5;
 /** Maximum excerpt chars sent per claim. */
