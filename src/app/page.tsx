@@ -48,6 +48,39 @@ const capabilities = [
   },
 ];
 
+const faqItems = [
+  {
+    question: "What can I upload?",
+    answer:
+      "Use a text-based PDF, DOCX, or TXT file. Scanned images and password-protected PDFs are not supported. Long documents may exceed the analysis limit; the workspace will explain when a file cannot be processed.",
+  },
+  {
+    question: "What do I get after analysis?",
+    answer:
+      "Plain-language explanations, links to the original passages, and an Action Pack with document-based checklist items and questions to discuss with a legal professional. Compare mode shows changes between two versions; Ask mode answers questions about your document.",
+  },
+  {
+    question: "Does a source link mean the answer is correct?",
+    answer:
+      "No. A source link lets you check the passage yourself. AI can misinterpret text or miss an important clause, even when the citation is valid. An optional second-model check is not a guarantee of legal accuracy.",
+  },
+  {
+    question: "Can I try it without my own document?",
+    answer:
+      "Yes. Open the workspace and choose a sample document in the upload area. Samples go through the same analysis flow as an uploaded file.",
+  },
+];
+
+const faqSchemaJson = JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqItems.map(({ question, answer }) => ({
+    "@type": "Question",
+    name: question,
+    acceptedAnswer: { "@type": "Answer", text: answer },
+  })),
+}).replace(/</g, "\\u003c");
+
 export default function Home() {
   return (
     <LandingMotion>
@@ -267,10 +300,12 @@ export default function Home() {
           </section>
           <section className={styles.faq} aria-labelledby="faq-title">
             <h2 id="faq-title">Before you bring your document.</h2>
-            <details><summary>What can I upload?</summary><p>Use a text-based PDF, DOCX, or TXT file. Scanned images and password-protected PDFs are not supported. Long documents may exceed the analysis limit; the workspace will explain when a file cannot be processed.</p></details>
-            <details><summary>What do I get after analysis?</summary><p>Plain-language explanations, links to the original passages, and an Action Pack with document-based checklist items and questions to discuss with a legal professional. Compare mode shows changes between two versions; Ask mode answers questions about your document.</p></details>
-            <details><summary>Does a source link mean the answer is correct?</summary><p>No. A source link lets you check the passage yourself. AI can misinterpret text or miss an important clause, even when the citation is valid. An optional second-model check is not a guarantee of legal accuracy.</p></details>
-            <details><summary>Can I try it without my own document?</summary><p>Yes. Open the workspace and choose a sample document in the upload area. Samples go through the same analysis flow as an uploaded file.</p></details>
+            {faqItems.map(({ question, answer }) => (
+              <details key={question}>
+                <summary>{question}</summary>
+                <p>{answer}</p>
+              </details>
+            ))}
           </section>
           <section className={styles.closing} data-reveal>
             <span className={styles.eyebrow}>
@@ -292,6 +327,7 @@ export default function Home() {
             />
           </section>
         </main>
+        <script type="application/ld+json">{faqSchemaJson}</script>
         <footer className={styles.footer}>
           <div className={styles.footerTop}>
             <Link href="/" className={styles.brand}>

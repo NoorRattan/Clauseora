@@ -194,6 +194,6 @@ describe("TEST-002 · Compare file count", () => {
     const fd = makeForm({ mode: "simplify", documentA: fileA, documentB: fileB });
     const r = validateRequest(fd);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error.code).toBe("WRONG_FILE_COUNT");
+    if (!r.ok) expect(r.error.code).toBe("INVALID_REQUEST");
   });
 });

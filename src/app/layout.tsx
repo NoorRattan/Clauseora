@@ -3,6 +3,8 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { SmoothScroll } from "./components/SmoothScroll";
 
+const SITE_URL = "https://clauseora.vercel.app";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -17,9 +19,10 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Clauseora — Evidence-First Legal Intelligence",
+  metadataBase: new URL(SITE_URL),
+  title: "Clauseora — Evidence-First Legal Document & Contract Analysis",
   description:
-    "Understand contracts in plain language with source-linked evidence. Clauseora connects every AI explanation to the exact passage in your document.",
+    "AI-powered legal document and contract analysis in plain language, with source-linked evidence for every explanation.",
   keywords: [
     "legal document",
     "contract review",
@@ -29,11 +32,13 @@ export const metadata: Metadata = {
     "document navigator",
   ],
   openGraph: {
-    title: "Clauseora — Evidence-First Legal Intelligence",
+    title: "Clauseora — Evidence-First Legal Document & Contract Analysis",
     description:
       "Understand the words. Verify the evidence. AI-powered contract analysis with source-linked explanations.",
+    url: SITE_URL,
     type: "website",
   },
+  alternates: { canonical: "/" },
 };
 
 export default function RootLayout({

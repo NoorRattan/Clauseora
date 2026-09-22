@@ -11,7 +11,6 @@ interface UploadZoneProps {
   onFileChange: (file: File | null) => void;
   file: File | null;
   disabled?: boolean;
-  onLoadPreset?: (sampleId: string, filename: string) => Promise<void>;
 }
 
 export function UploadZone({
@@ -96,7 +95,7 @@ export function UploadZone({
       {/* Main Drop Surface with spring motion */}
       <motion.div
         id={zoneId}
-        role="group"
+        role={file ? "group" : "button"}
         tabIndex={disabled ? -1 : 0}
         aria-disabled={disabled || undefined}
         aria-busy={loadingPreset !== null}

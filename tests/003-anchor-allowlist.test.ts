@@ -18,7 +18,7 @@ import type {
   ActionPack,
   AnchorRef,
 } from "@/types/evidence";
-import { collectAllAnchorIds, validateAnchors } from "@/lib/process-pipeline";
+import { collectAllAnchorIds, selectHighImpactIds, validateAnchors } from "@/lib/process-pipeline";
 
 function validateResultAnchors(
   result: SimplifyResult | CompareResult | AskResult,
@@ -161,6 +161,23 @@ describe("TEST-003 · Compare anchor allowlist", () => {
       ],
     };
     expect(validateResultAnchors(result, EMPTY_AP, allAllowed, "compare", allowedA, allowedB).ok).toBe(false);
+  });
+
+  it("selects plural date and money changes for secondary verification", () => {
+    const result: CompareResult = {
+      changes: [
+        {
+          topic: "Payment window",
+          changeType: "modified",
+          before: "Payment due in 30 days.",
+          after: "Payment due in 45 days.",
+          whyReview: "The payment period changed.",
+          anchorIdsA: ["A-p1-b0"],
+          anchorIdsB: ["B-p1-b0"],
+        },
+      ],
+    };
+    expect(selectHighImpactIds(result, "compare")).toEqual(["A-p1-b0", "B-p1-b0"]);
   });
 });
 

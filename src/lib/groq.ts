@@ -26,6 +26,9 @@ export const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b
 /** Conservative token budget for the admitted document (free tier: 8K TPM) */
 export const GROQ_MAX_INPUT_TOKENS = 6_000;
 export const GROQ_MAX_OUTPUT_TOKENS = 4_096;
+/** Keep the configured input + output ceiling below the documented 8K TPM tier. */
+export const GROQ_MAX_TOTAL_TOKENS = 7_600;
+export const GROQ_MIN_OUTPUT_TOKENS = 512;
 export const GROQ_TIMEOUT_MS = 30_000;
 
 const groqCircuitBreaker = new CircuitBreaker({
@@ -89,6 +92,10 @@ export async function callGroq(
   if (estimatedInput > GROQ_MAX_INPUT_TOKENS) {
     return { ok: false, error: "DOCUMENT_TOO_LONG", details: "Token budget exceeded before API call" };
   }
+  const maxOutputTokens = getGroqOutputTokenBudget(estimatedInput);
+  if (maxOutputTokens < GROQ_MIN_OUTPUT_TOKENS) {
+    return { ok: false, error: "DOCUMENT_TOO_LONG", details: "Insufficient output budget" };
+  }
   if (!groqCircuitBreaker.canRequest()) {
     return { ok: false, error: "PRIMARY_UNAVAILABLE", details: "provider circuit open" };
   }
@@ -102,7 +109,7 @@ export async function callGroq(
         { role: "user", content: userMessage },
       ],
       temperature: 0,
-      max_tokens: GROQ_MAX_OUTPUT_TOKENS,
+      max_tokens: maxOutputTokens,
       response_format: { type: "json_object" },
     });
 
@@ -166,17 +173,15 @@ function buildUserMessage(
 
   parts.push("=== DOCUMENT A SEGMENTS (untrusted data) ===");
   for (const seg of segmentsA) {
-    parts.push(
-      `[${seg.id}] ${seg.locator}${seg.heading ? ` | ${seg.heading}` : ""}\n${seg.text}`
-    );
+    // The system prompt already carries the complete allowlist. Keep the
+    // request payload limited to the ID needed for citation plus source text.
+    parts.push(`[${seg.id}]\n${seg.text}`);
   }
 
   if (segmentsB && segmentsB.length > 0) {
     parts.push("\n=== DOCUMENT B SEGMENTS (untrusted data) ===");
     for (const seg of segmentsB) {
-      parts.push(
-        `[${seg.id}] ${seg.locator}${seg.heading ? ` | ${seg.heading}` : ""}\n${seg.text}`
-      );
+      parts.push(`[${seg.id}]\n${seg.text}`);
     }
   }
 
@@ -185,6 +190,13 @@ function buildUserMessage(
   }
 
   return parts.join("\n\n");
+}
+
+export function getGroqOutputTokenBudget(estimatedInputTokens: number): number {
+  return Math.min(
+    GROQ_MAX_OUTPUT_TOKENS,
+    Math.max(0, GROQ_MAX_TOTAL_TOKENS - estimatedInputTokens),
+  );
 }
 
 /** Estimate the exact prompt shape used by callGroq before making the request. */

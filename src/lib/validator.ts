@@ -46,7 +46,6 @@ const FORBIDDEN_IN_TXT: Array<{ magic: number[]; label: string }> = [
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type ValidatedFile = {
-  buffer: Buffer;
   extension: "pdf" | "docx" | "txt";
   displayName: string;
 };
@@ -75,8 +74,10 @@ export type ValidationResult =
  */
 export function validateRequest(formData: FormData): ValidationResult {
   // 1. Mode
-  const modeRaw = formData.get("mode");
+  const modeValues = formData.getAll("mode");
+  const modeRaw = modeValues[0];
   if (
+    modeValues.length !== 1 ||
     typeof modeRaw !== "string" ||
     !["simplify", "compare", "ask"].includes(modeRaw)
   ) {
@@ -92,7 +93,15 @@ export function validateRequest(formData: FormData): ValidationResult {
   const allowedFileFields = new Set(
     mode === "compare" ? ["documentA", "documentB"] : ["documentA"],
   );
+  const allowedFields = new Set([
+    "mode",
+    ...allowedFileFields,
+    ...(mode === "ask" ? ["question"] : []),
+  ]);
   for (const [field, value] of formData.entries()) {
+    if (!allowedFields.has(field)) {
+      return err("INVALID_REQUEST", "Unexpected form fields are not accepted.");
+    }
     if (value instanceof File && !allowedFileFields.has(field)) {
       return err("WRONG_FILE_COUNT", "Only the required document fields are accepted.");
     }
@@ -123,8 +132,12 @@ export function validateRequest(formData: FormData): ValidationResult {
 
   // 4. Question for Ask mode
   let question: string | undefined;
+  const questionValues = formData.getAll("question");
   if (mode === "ask") {
-    const q = formData.get("question");
+    if (questionValues.length !== 1) {
+      return err("INVALID_REQUEST", "Ask mode requires exactly one question.");
+    }
+    const q = questionValues[0];
     if (typeof q !== "string") {
       return err("INVALID_REQUEST", "question is required for Ask mode.");
     }
@@ -138,6 +151,8 @@ export function validateRequest(formData: FormData): ValidationResult {
       );
     }
     question = qCheck.sanitized;
+  } else if (questionValues.length > 0) {
+    return err("INVALID_REQUEST", "question is only accepted in Ask mode.");
   }
 
   return {
@@ -192,7 +207,6 @@ function validateFile(
   return {
     ok: true,
     file: {
-      buffer: Buffer.alloc(0), // Placeholder; actual buffer read happens in route
       extension: ext as "pdf" | "docx" | "txt",
       displayName: safeName,
     },

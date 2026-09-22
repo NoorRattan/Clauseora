@@ -31,7 +31,28 @@ describe("Defensive request and extraction boundaries", () => {
     withExtra.append("mode", "simplify");
     withExtra.append("documentA", makeFile("a.txt", "one", "text/plain"));
     withExtra.append("attachment", makeFile("b.txt", "two", "text/plain"));
-    expect(validateRequest(withExtra)).toMatchObject({ ok: false, error: { code: "WRONG_FILE_COUNT" } });
+    expect(validateRequest(withExtra)).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+  });
+
+  it("rejects repeated scalar fields and mode-inappropriate questions", () => {
+    const repeatedMode = new FormData();
+    repeatedMode.append("mode", "simplify");
+    repeatedMode.append("mode", "ask");
+    repeatedMode.append("documentA", makeFile("a.txt", "one", "text/plain"));
+    expect(validateRequest(repeatedMode)).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+
+    const repeatedQuestion = new FormData();
+    repeatedQuestion.append("mode", "ask");
+    repeatedQuestion.append("documentA", makeFile("a.txt", "one", "text/plain"));
+    repeatedQuestion.append("question", "When?");
+    repeatedQuestion.append("question", "Who?");
+    expect(validateRequest(repeatedQuestion)).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
+
+    const misplacedQuestion = new FormData();
+    misplacedQuestion.append("mode", "simplify");
+    misplacedQuestion.append("documentA", makeFile("a.txt", "one", "text/plain"));
+    misplacedQuestion.append("question", "When?");
+    expect(validateRequest(misplacedQuestion)).toMatchObject({ ok: false, error: { code: "INVALID_REQUEST" } });
   });
 
   it("rejects a valid signature paired with a mismatched reported MIME", () => {
@@ -64,4 +85,3 @@ describe("Defensive request and extraction boundaries", () => {
     expect(checkRateLimit(headers, start + 10 * 60 * 1000 + 1)).toEqual({ allowed: true });
   });
 });
-

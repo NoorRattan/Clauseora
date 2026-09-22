@@ -2,14 +2,14 @@
 
 | Field | Value |
 |---|---|
-| Revision | REV-005 |
-| Verification date | 2026-09-21 |
+| Revision | REV-006 |
+| Verification date | 2026-09-22 |
 | Primary analyzer | Groq (`openai/gpt-oss-120b` by default), temperature 0 |
 | Secondary verifier | Cloudflare Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`) |
 | Supported formats | Text-layer PDF, DOCX, TXT |
 | Admission limits | 8 MB, 150 PDF pages, 120,000 extracted characters, 6,000 estimated input tokens |
-| Test status | 16 test files, 156 tests passed |
-| Production status | Vercel deployment returned HTTP 200 for the landing page and synthetic sample endpoint |
+| Test status | 18 test files, 174 tests passed |
+| Production status | Prior Vercel deployment returned HTTP 200 for the landing page and synthetic sample endpoint; REV-006 is locally verified and has not been submitted or deployed |
 
 ## Automated verification
 
@@ -35,6 +35,7 @@ The test suite covers deterministic anchors, upload and extraction boundaries, s
 6. **Provider minimization** — Cloudflare receives only selected high-impact claims and short source excerpts; it does not receive the full document.
 7. **No application persistence** — the app does not store uploaded documents, document history, or model results in a database or object storage.
 8. **Fixed legal boundary** — every terminal API response includes the application-owned legal information notice.
+9. **Discoverable landing metadata** — the landing page exposes a canonical URL, descriptive hero alternative text, and FAQ structured data without changing the visible presentation.
 
 ## Efficiency and resilience guarantees
 
@@ -45,6 +46,7 @@ The test suite covers deterministic anchors, upload and extraction boundaries, s
 5. **Request-scoped reuse** — model anchor IDs are collected once and reused for validation and evidence resolution.
 6. **Privacy-safe timing** — successful responses include phase durations through `Server-Timing`, with no document or filename data.
 7. **Public-data-only cache** — the four synthetic sample fixtures use a four-entry, one-hour TTL/LRU cache plus ETag and CDN revalidation headers. `/api/process` remains strictly `no-store` and never uses this cache.
+8. **Bounded model budgets** — primary-model output is capped against the input estimate, while compact anchor references avoid repeating full locator text in the user prompt.
 
 ## Deployment
 

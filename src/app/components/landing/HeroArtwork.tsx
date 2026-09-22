@@ -79,9 +79,17 @@ export function HeroArtwork() {
       <div aria-hidden="true" className={styles.scene}>
         <div className={styles.scenePoster} data-ready={ready}>
           <picture>
-          <source media="(max-width: 899px)" srcSet="/hero-scene-mobile.webp" />
-          <Image src="/hero-scene.webp" alt="" width={749} height={568}
-            loading="eager" fetchPriority="high" unoptimized className={styles.sceneImage} />
+            <source media="(max-width: 899px)" srcSet="/hero-scene-mobile.webp" />
+            <Image
+              src="/hero-scene.webp"
+              alt="Evidence-linked legal document illustration"
+              fill
+              sizes="(max-width: 899px) 420px, 749px"
+              loading="eager"
+              fetchPriority="high"
+              style={{ width: "auto", left: "50%", right: "auto", top: "auto", bottom: "auto" }}
+              className={styles.sceneImage}
+            />
           </picture>
         </div>
         {canRender && (

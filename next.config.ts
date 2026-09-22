@@ -29,6 +29,9 @@ const securityHeaders = [
     value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
   },
   { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  ...(!isDevelopment
+    ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" }]
+    : []),
 ];
 
 const nextConfig: NextConfig = {

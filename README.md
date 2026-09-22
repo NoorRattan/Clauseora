@@ -152,10 +152,10 @@ Configure `GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_AI_TOKEN` in 
 
 ```bash
 npm run verify           # lint, types, coverage gates, build, and dependency audit
-npm test                 # 18 test files, 166 tests
+npm test                 # 18 test files, 174 tests
 ```
 
-The current suite contains 18 test files and 166 tests. It exercises the production route handler and both provider adapters, plus deterministic circuit-breaker, sliding-window, bounded-cache, conditional sample delivery, evidence, and security contracts. CI enforces minimum server coverage of 77% statements, 61% branches, 85% functions, and 80% lines. See [SECURITY.md](SECURITY.md) for the privacy and threat model.
+The current suite contains 18 test files and 174 tests. It exercises the production route handler and both provider adapters, plus deterministic circuit-breaker, sliding-window, bounded-cache, conditional sample delivery, evidence, and security contracts. CI enforces minimum server coverage of 77% statements, 61% branches, 85% functions, and 80% lines. See [SECURITY.md](SECURITY.md) for the privacy and threat model.
 
 ---
 

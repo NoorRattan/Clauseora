@@ -17,7 +17,7 @@ vi.mock("@/lib/cloudflare", async (importOriginal) => {
   return { ...actual, callCloudflare: providerMocks.callCloudflare };
 });
 
-import { POST } from "@/app/api/process/route";
+import { POST, securityHeaders } from "@/app/api/process/route";
 
 let clientSequence = 0;
 
@@ -153,5 +153,50 @@ describe("POST /api/process production orchestration", () => {
     expect(response.status).toBe(400);
     expect(body.error.code).toBe("INVALID_REQUEST");
     expect(providerMocks.callGroq).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized multipart request before parsing the body", async () => {
+    const response = await POST(
+      new NextRequest("https://clauseora.example/api/process", {
+        method: "POST",
+        body: "not parsed",
+        headers: {
+          origin: "https://clauseora.example",
+          "content-length": String(17 * 1024 * 1024),
+          "x-forwarded-for": `203.0.113.${++clientSequence}`,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect((await response.json()).error.code).toBe("FILE_TOO_LARGE");
+    expect(providerMocks.callGroq).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed request lengths before parsing the body", async () => {
+    const response = await POST(
+      new NextRequest("https://clauseora.example/api/process", {
+        method: "POST",
+        body: "not parsed",
+        headers: {
+          origin: "https://clauseora.example",
+          "content-length": "10.5",
+          "x-forwarded-for": `203.0.113.${++clientSequence}`,
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe("INVALID_REQUEST");
+    expect(providerMocks.callGroq).not.toHaveBeenCalled();
+  });
+
+  it("keeps the API response policy aligned with the site policy", () => {
+    expect(securityHeaders()).toMatchObject({
+      "Cache-Control": "no-store, max-age=0",
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      "X-DNS-Prefetch-Control": "off",
+    });
   });
 });

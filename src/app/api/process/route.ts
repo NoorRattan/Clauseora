@@ -37,7 +37,7 @@ import {
   type ErrorCode,
 } from "@/types/evidence";
 
-import { validateRequest, verifySignature } from "@/lib/validator";
+import { MAX_FILE_BYTES, validateRequest, verifySignature } from "@/lib/validator";
 import {
   callGroq,
   estimateGroqInputTokens,
@@ -63,6 +63,7 @@ import {
 } from "@/lib/process-pipeline";
 
 const EMPTY_ACTION_PACK: ActionPack = { checklist: [], lawyerQuestions: [] };
+const MAX_MULTIPART_REQUEST_BYTES = MAX_FILE_BYTES * 2 + 512 * 1024;
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -108,6 +109,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 async function processRequest(req: NextRequest, requestId: string): Promise<NextResponse> {
   const requestStartedAt = performance.now();
+  const contentLengthHeader = req.headers.get("content-length");
+  if (contentLengthHeader) {
+    const normalizedContentLength = contentLengthHeader.trim();
+    if (!/^\d+$/.test(normalizedContentLength)) {
+      return errorResponse(requestId, null, "INVALID_REQUEST", "Invalid request length.");
+    }
+    const contentLength = Number(normalizedContentLength);
+    if (!Number.isSafeInteger(contentLength)) {
+      return errorResponse(requestId, null, "INVALID_REQUEST", "Invalid request length.");
+    }
+    if (contentLength > MAX_MULTIPART_REQUEST_BYTES) {
+      return errorResponse(
+        requestId,
+        null,
+        "FILE_TOO_LARGE",
+        "The uploaded request exceeds the 8 MB per-document limit.",
+      );
+    }
+  }
   // ─── Parse multipart form ───────────────────────────────────────────────────
   let formData: FormData;
   try {
@@ -382,15 +402,22 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
 };
 
 export function securityHeaders(): Record<string, string> {
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "Cache-Control": "no-store, max-age=0",
     Pragma: "no-cache",
     "X-Content-Type-Options": "nosniff",
+    "X-DNS-Prefetch-Control": "off",
     "X-Frame-Options": "DENY",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
     "Referrer-Policy": "no-referrer",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), browsing-topics=()",
     "Content-Security-Policy":
       "default-src 'none'; frame-ancestors 'none'",
   };
+  if (process.env.NODE_ENV === "production") {
+    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload";
+  }
+  return headers;
 }

@@ -136,11 +136,31 @@ export function selectClaimsForVerification(
     selected.push({
       claimPath: anchorId,
       claimText: claimText.slice(0, 500),
-      excerpts: [anchor.excerpt.slice(0, CF_MAX_EXCERPT_CHARS)],
+      excerpts: [focusExcerpt(anchor.excerpt, claimText)],
     });
   }
 
   return selected;
+}
+
+/** Keep the verifier window small while preferring text near the claim terms. */
+export function focusExcerpt(
+  excerpt: string,
+  claimText: string,
+  maxChars = CF_MAX_EXCERPT_CHARS,
+): string {
+  if (excerpt.length <= maxChars) return excerpt;
+
+  const lowerExcerpt = excerpt.toLocaleLowerCase();
+  const tokens = claimText.toLocaleLowerCase().match(/[a-z0-9][a-z0-9-]{2,}/g) ?? [];
+  const matches = tokens
+    .map((token) => lowerExcerpt.indexOf(token))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b);
+  const match = matches[0] ?? 0;
+  const contextBefore = Math.floor(maxChars * 0.3);
+  const start = Math.max(0, Math.min(match - contextBefore, excerpt.length - maxChars));
+  return excerpt.slice(start, start + maxChars);
 }
 
 /**

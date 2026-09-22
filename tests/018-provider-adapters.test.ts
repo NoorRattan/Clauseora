@@ -9,8 +9,9 @@ vi.mock("groq-sdk", () => ({
   },
 }));
 
-import { callCloudflare, type ClaimToVerify } from "@/lib/cloudflare";
-import { callGroq } from "@/lib/groq";
+import { callCloudflare, focusExcerpt, type ClaimToVerify } from "@/lib/cloudflare";
+import { callGroq, getGroqOutputTokenBudget } from "@/lib/groq";
+import { safeGroqMessage } from "@/lib/process-pipeline";
 
 const segment: Segment = {
   id: "A-l001-b001",
@@ -78,8 +79,18 @@ describe("provider adapters", () => {
       result: { status: "supported", anchorIds: [segment.id] },
     });
     expect(groqSdkMock.create).toHaveBeenCalledWith(
-      expect.objectContaining({ temperature: 0, response_format: { type: "json_object" } }),
+      expect.objectContaining({
+        temperature: 0,
+        response_format: { type: "json_object" },
+        max_tokens: expect.any(Number),
+      }),
     );
+  });
+
+  it("keeps the provider request below the configured total token budget", () => {
+    expect(getGroqOutputTokenBudget(1_000)).toBe(4_096);
+    expect(getGroqOutputTokenBudget(6_000)).toBe(1_600);
+    expect(getGroqOutputTokenBudget(7_601)).toBe(0);
   });
 
   it("fails closed on invalid Groq JSON", async () => {
@@ -139,5 +150,16 @@ describe("provider adapters", () => {
     );
 
     await expect(callCloudflare([claim])).resolves.toEqual({ ok: false, reason: "invalid" });
+  });
+
+  it("focuses the bounded verifier excerpt near the claim terms", () => {
+    const excerpt = `${"introductory text ".repeat(40)}The payment deadline is thirty days after invoice receipt.`;
+    const focused = focusExcerpt(excerpt, "payment deadline", 80);
+    expect(focused).toContain("payment deadline");
+    expect(focused.length).toBe(80);
+  });
+
+  it("gives oversized documents a useful fixed provider message", () => {
+    expect(safeGroqMessage("DOCUMENT_TOO_LONG")).toContain("too long");
   });
 });

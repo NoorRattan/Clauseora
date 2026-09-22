@@ -126,7 +126,7 @@ export function selectHighImpactIds(result: ModeResult, mode: Mode): string[] {
       }
     }
   } else if (mode === "compare") {
-    const highImpactPattern = /\$|\b\d+[,.]?\d*\s*(usd|eur|gbp|month|mo\.?|year|yr\.?|day|week)\b|\b(payment|retainer|fee|deposit|salary|compensation|penalty|damages|liabilit|indemnif|cap|limit|venue|jurisdiction|governing\s+law)\b|\b\d+[-\s]day|\b(due|deadline|expir|terminat|notice|renew|surviv)/i;
+    const highImpactPattern = /\$|\b\d+[,.]?\d*\s*(usd|eur|gbp|months?|mo\.?|years?|yr\.?|days?|weeks?)\b|\b(payment|retainer|fee|deposit|salary|compensation|penalty|damages|liabilit|indemnif|cap|limit|venue|jurisdiction|governing\s+law)\b|\b\d+[-\s](?:days?|weeks?|months?|years?)\b|\b(due|deadline|expir|terminat|notice|renew|surviv)/i;
     for (const change of (result as CompareResult).changes ?? []) {
       const text = [change.after ?? "", change.before ?? "", change.whyReview ?? ""].join(" ");
       if (highImpactPattern.test(text)) {
@@ -154,6 +154,8 @@ export function safeExtractMessage(code: ErrorCode): string {
 
 export function safeGroqMessage(code: string): string {
   const messages: Record<string, string> = {
+    DOCUMENT_TOO_LONG:
+      "This document is too long for the current analysis budget. Please upload a shorter document or a subset of pages.",
     PRIMARY_QUOTA_EXHAUSTED:
       "The analysis service is temporarily at capacity. Please try again in a few minutes.",
     MODEL_TIMEOUT:
