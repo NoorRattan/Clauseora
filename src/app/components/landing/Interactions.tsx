@@ -1,12 +1,6 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  MotionConfig,
-  motion,
-  useReducedMotion,
-  useSpring,
-} from "framer-motion";
 import { FileText, ScanLine, ArrowUpRight } from "lucide-react";
 import styles from "../../page.module.css";
 
@@ -14,49 +8,37 @@ export function LandingMotion({ children }: { children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (media.matches) return;
-    let cleanup: (() => void) | undefined;
-    let cancelled = false;
-    void Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(
-      ([{ gsap }, { ScrollTrigger }]) => {
-        if (cancelled) return;
-        gsap.registerPlugin(ScrollTrigger);
-        const context = gsap.context(() => {
-          gsap.utils
-            .toArray<HTMLElement>("[data-reveal]")
-            .forEach((element) => {
-              gsap.from(element, {
-                y: 28,
-                duration: 0.85,
-                ease: "power3.out",
-                scrollTrigger: {
-                  trigger: element,
-                  start: "top 94%",
-                  once: true,
-                },
-              });
-            });
-        }, root);
-        cleanup = () => context.revert();
-      },
-    ).catch(() => {
-      // The page remains usable when the optional reveal bundle is unavailable.
-    });
-    const stopMotion = () => {
-      if (media.matches) cleanup?.();
+    const elements = root.current?.querySelectorAll<HTMLElement>("[data-reveal]");
+    // One observer for every reveal. Content stays visible without JavaScript.
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(({ target, isIntersecting }) => {
+        if (!isIntersecting) return;
+        target.classList.add(styles.revealVisible);
+        observer.unobserve(target);
+      });
+    }, { rootMargin: "0px 0px -6% 0px" });
+    const sync = () => {
+      observer.disconnect();
+      elements?.forEach(element => {
+        if (media.matches) {
+          element.classList.remove(styles.revealPending);
+        } else if (!element.classList.contains(styles.revealVisible)) {
+          // Never move content which is already in the viewport on hydration.
+          if (element.getBoundingClientRect().top < window.innerHeight * 0.94) return;
+          element.classList.add(styles.revealPending);
+          observer.observe(element);
+        }
+      });
     };
-    media.addEventListener("change", stopMotion);
+    sync();
+    media.addEventListener("change", sync);
     return () => {
-      cancelled = true;
-      cleanup?.();
-      media.removeEventListener("change", stopMotion);
+      observer.disconnect();
+      elements?.forEach(element => element.classList.remove(styles.revealPending, styles.revealVisible));
+      media.removeEventListener("change", sync);
     };
   }, []);
-  return (
-    <MotionConfig reducedMotion="user">
-      <div ref={root}>{children}</div>
-    </MotionConfig>
-  );
+  return <div ref={root}>{children}</div>;
 }
 
 export function MagneticLink({
@@ -68,27 +50,67 @@ export function MagneticLink({
   className: string;
   children: ReactNode;
 }) {
-  const reduced = useReducedMotion();
-  const x = useSpring(0, { stiffness: 240, damping: 22 });
-  const y = useSpring(0, { stiffness: 240, damping: 22 });
+  const root = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const element = root.current;
+    if (!element) return;
+    const media = matchMedia("(prefers-reduced-motion: reduce)");
+    let frame = 0, last = 0;
+    let x = 0, y = 0, vx = 0, vy = 0, tx = 0, ty = 0;
+    let point: { x: number; y: number } | null = null;
+    const tick = (time: number) => {
+      const dt = Math.min((time - (last || time - 16.67)) / 1000, 1 / 60);
+      last = time;
+      if (point) {
+        const box = element.getBoundingClientRect();
+        tx = (point.x - box.left - box.width / 2) * 0.09;
+        ty = (point.y - box.top - box.height / 2) * 0.16;
+        point = null;
+      }
+      // The original magnetic spring: stiffness 240, damping 22, mass 1.
+      vx += (240 * (tx - x) - 22 * vx) * dt;
+      vy += (240 * (ty - y) - 22 * vy) * dt;
+      x += vx * dt;
+      y += vy * dt;
+      element.style.transform = `translate(${x}px, ${y}px)`;
+      if (Math.abs(tx-x)+Math.abs(ty-y)+Math.abs(vx)+Math.abs(vy) > 0.01) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        element.style.transform = `translate(${tx}px, ${ty}px)`;
+        frame = last = 0;
+      }
+    };
+    const start = () => { if (!frame) frame = requestAnimationFrame(tick); };
+    const move = (event: PointerEvent) => {
+      if (media.matches || event.pointerType !== "mouse") return;
+      point = { x: event.clientX, y: event.clientY };
+      start();
+    };
+    const leave = () => { point = null; tx = ty = 0; if (!media.matches) start(); };
+    const reset = () => {
+      cancelAnimationFrame(frame);
+      frame = last = x = y = vx = vy = tx = ty = 0;
+      point = null;
+      element.style.transform = "none";
+    };
+    element.addEventListener("pointermove", move, { passive: true });
+    element.addEventListener("pointerleave", leave, { passive: true });
+    media.addEventListener("change", reset);
+    document.addEventListener("visibilitychange", reset);
+    return () => {
+      reset();
+      element.removeEventListener("pointermove", move);
+      element.removeEventListener("pointerleave", leave);
+      media.removeEventListener("change", reset);
+      document.removeEventListener("visibilitychange", reset);
+    };
+  }, []);
   return (
-    <motion.span
-      style={{ display: "inline-flex", x, y }}
-      onPointerMove={(event) => {
-        if (reduced || event.pointerType !== "mouse") return;
-        const box = event.currentTarget.getBoundingClientRect();
-        x.set((event.clientX - box.left - box.width / 2) * 0.09);
-        y.set((event.clientY - box.top - box.height / 2) * 0.16);
-      }}
-      onPointerLeave={() => {
-        x.set(0);
-        y.set(0);
-      }}
-    >
+    <span ref={root} style={{ display: "inline-flex" }}>
       <Link href={href} className={className}>
         {children}
       </Link>
-    </motion.span>
+    </span>
   );
 }
 

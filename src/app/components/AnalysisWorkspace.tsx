@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useDialogFocus } from "@/hooks/useDialogFocus";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import type {
   Mode,
   AnchorRef,
@@ -164,7 +164,11 @@ function DisclosureModal({ onClose }: { onClose: () => void }) {
 
 // ─── Main App ──────────────────────────────────────────────────────────────────
 
-export default function AnalysisWorkspace({
+export default function AnalysisWorkspace({ initialMode = "simplify" }: { initialMode?: Mode }) {
+  return <MotionConfig reducedMotion="user"><Workspace initialMode={initialMode} /></MotionConfig>;
+}
+
+function Workspace({
   initialMode = "simplify",
 }: {
   initialMode?: Mode;
@@ -322,7 +326,6 @@ export default function AnalysisWorkspace({
           <Link
             href="/"
             className="flex items-center gap-3 group focus:outline-none"
-            aria-label="Clauseora Home"
           >
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-obsidian-950 shadow-glow-amber group-hover:scale-105 transition-transform duration-200">
               <Scale className="w-5 h-5 stroke-[2.5]" />
@@ -514,7 +517,7 @@ export default function AnalysisWorkspace({
                     >
                       Your Inquiry for this Document
                     </label>
-                    <span className="text-[11px] font-mono text-slate-500">
+                    <span className="text-[11px] font-mono text-muted-accessible">
                       {question.length}/2000
                     </span>
                   </div>
@@ -627,9 +630,9 @@ export default function AnalysisWorkspace({
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              <p role="status" aria-live="polite" className="sr-only">
+              <h1 aria-live="polite" className="sr-only">
                 Analysis complete. Your {apiResult.mode} results are ready.
-              </p>
+              </h1>
               {/* Back / Reset Ribbon */}
               <div className="flex items-center justify-between flex-wrap gap-3 pb-2">
                 <button
@@ -668,7 +671,7 @@ export default function AnalysisWorkspace({
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-white/10 bg-obsidian-950/80 backdrop-blur-2xl py-8 px-4 sm:px-6 mt-16 text-center text-xs text-slate-500">
+      <footer className="border-t border-white/10 bg-obsidian-950/80 backdrop-blur-2xl py-8 px-4 sm:px-6 mt-16 text-center text-xs text-muted-accessible">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-slate-400">
             <Scale className="w-4 h-4 text-amber-400" />

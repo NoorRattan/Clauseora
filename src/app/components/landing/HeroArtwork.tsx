@@ -1,83 +1,99 @@
 "use client";
 import dynamic from "next/dynamic";
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
 import { Asterisk, ScanLine, ArrowUpRight } from "lucide-react";
 import styles from "../../page.module.css";
 
 const Scene = dynamic(() => import("./DocumentScene"), { ssr: false });
 class SceneBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; onFailure: () => void },
   { failed: boolean }
 > {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
+  componentDidCatch() { this.props.onFailure(); }
   render() {
     return this.state.failed ? null : this.props.children;
   }
 }
 
 export function HeroArtwork() {
-  const reduced = useReducedMotion();
   const [canRender, setCanRender] = useState(false);
   const [active, setActive] = useState(false);
   const [ready, setReady] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("webgl2");
-    if (!context) return;
-    context.getExtension("WEBGL_lose_context")?.loseContext();
-    const timer = window.setTimeout(() => setCanRender(true), 500);
+    const element = container.current;
+    if (!element) return;
+    const motion = matchMedia("(prefers-reduced-motion: reduce)");
+    const finePointer = matchMedia("(hover: hover) and (pointer: fine)");
+    const device = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+    let visible = false;
+    let painted = false;
+    let timer = 0;
+    let idle = 0;
+    let secondFrame = 0;
+    const sync = () => {
+      const animate = visible && !document.hidden && !motion.matches;
+      setActive(animate);
+      // CSS pauses at the current phase instead of jumping back to frame zero.
+      element.dataset.active = String(animate);
+      clearTimeout(timer);
+      if (idle) window.cancelIdleCallback(idle);
+      if (!animate || !painted || !finePointer.matches || device.connection?.saveData ||
+          (device.deviceMemory !== undefined && device.deviceMemory < 4) || navigator.hardwareConcurrency < 4) return;
+      // Wait for the .9s headline entrance, then give input/paint priority.
+      timer = window.setTimeout(() => {
+        const load = () => setCanRender(true);
+        if ("requestIdleCallback" in window) idle = window.requestIdleCallback(load);
+        else load();
+      }, 1100);
+    };
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => { painted = true; sync(); });
+    });
     const observer = new IntersectionObserver(
-      ([entry]) => setActive(entry.isIntersecting && !document.hidden),
+      ([entry]) => { visible = entry.isIntersecting; sync(); },
       { threshold: 0.05 },
     );
-    if (container.current) observer.observe(container.current);
-    const visibility = () =>
-      setActive(
-        !document.hidden &&
-          !!container.current &&
-          container.current.getBoundingClientRect().bottom > 0,
-      );
-    document.addEventListener("visibilitychange", visibility);
+    observer.observe(element);
+    document.addEventListener("visibilitychange", sync);
+    motion.addEventListener("change", sync);
+    finePointer.addEventListener("change", sync);
     return () => {
       clearTimeout(timer);
+      if (idle) window.cancelIdleCallback(idle);
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
       observer.disconnect();
-      document.removeEventListener("visibilitychange", visibility);
+      document.removeEventListener("visibilitychange", sync);
+      motion.removeEventListener("change", sync);
+      finePointer.removeEventListener("change", sync);
     };
   }, []);
   return (
     <div ref={container} className={styles.artwork}>
       <div aria-hidden="true" className={styles.scene}>
-        {!ready && <div className={styles.orbitFallback} />}
+        <div className={styles.scenePoster} data-ready={ready}>
+          <picture>
+          <source media="(max-width: 899px)" srcSet="/hero-scene-mobile.webp" />
+          <Image src="/hero-scene.webp" alt="" width={749} height={568}
+            loading="eager" fetchPriority="high" unoptimized className={styles.sceneImage} />
+          </picture>
+        </div>
         {canRender && (
-          <SceneBoundary>
-            <Scene active={active && !reduced} onReady={() => setReady(true)} />
+          <SceneBoundary onFailure={() => setReady(false)}>
+            <Scene active={active} onReady={() => setReady(true)} />
           </SceneBoundary>
         )}
       </div>
       <span className={styles.artLabel}>
         A NEW PERSPECTIVE ON THE FINE PRINT
       </span>
-      <motion.div
-        className={styles.documentStack}
-        transformTemplate={(_, generated) =>
-          `translate(-50%, -50%) ${generated}`
-        }
-        animate={
-          reduced || !active
-            ? { y: 0, rotate: -12 }
-            : { y: [0, -9, 0], rotate: [-12, -10, -12] }
-        }
-        transition={{
-          duration: 9,
-          repeat: active && !reduced ? Infinity : 0,
-          ease: "easeInOut",
-        }}
-      >
+      <div className={styles.documentStack}>
         <div className={styles.document} aria-hidden="true">
           <div className={styles.documentTop}>
             <Asterisk size={14} />
@@ -108,16 +124,8 @@ export function HeroArtwork() {
           </div>
           <div className={styles.documentSignature}>Alpha & Beta</div>
         </div>
-      </motion.div>
-      <motion.div
-        className={styles.sourceFloat}
-        animate={reduced || !active ? { y: 0 } : { y: [0, 7, 0] }}
-        transition={{
-          duration: 7,
-          repeat: active && !reduced ? Infinity : 0,
-          ease: "easeInOut",
-        }}
-      >
+      </div>
+      <div className={styles.sourceFloat}>
         <span>
           <ScanLine size={12} /> FROM CLAUSE TO CLARITY
         </span>
@@ -125,7 +133,7 @@ export function HeroArtwork() {
         <a href="#evidence">
           See the original passage <ArrowUpRight size={12} />
         </a>
-      </motion.div>
+      </div>
       <span className={styles.artFootnote}>
         Complexity, with a little perspective.
       </span>

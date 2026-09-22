@@ -87,7 +87,7 @@ export function UploadZone({
           <span className="text-xs font-semibold tracking-wider uppercase text-slate-400">
             {label}
           </span>
-          <span className="text-[11px] font-mono text-slate-500">
+          <span className="text-[11px] font-mono text-muted-accessible">
             {docKey === "A" ? "Document A" : "Document B"}
           </span>
         </div>

@@ -900,3 +900,6 @@ html { scroll-padding-top: 24px; }
 .workspace-shell .bg-gradient-to-r, .workspace-shell .bg-gradient-to-br { background-color: #c9baff; }
 .workspace-shell .text-amber-400, .workspace-shell .text-amber-300 { color: #c9baff; }
 .workspace-guide { color: #bab5cb; text-align: center; font-size: 13px; line-height: 1.8; max-width: 620px; margin: 0 auto 22px; }
+
+/* Only text labels that failed AA; retain decorative slate-500 icons. */
+.workspace-shell .text-muted-accessible { color: #929bb0; }

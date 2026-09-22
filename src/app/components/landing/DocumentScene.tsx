@@ -1,25 +1,42 @@
 "use client";
-import { Suspense, useEffect, useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   ContactShadows,
   Environment,
   Lightformer,
   Sparkles,
 } from "@react-three/drei";
-import {
-  Bloom,
-  DepthOfField,
-  EffectComposer,
-} from "@react-three/postprocessing";
 import { Group, MathUtils, PCFShadowMap } from "three";
 
-function Sculpture({ active }: { active: boolean }) {
+const SceneEffects = lazy(() => import("./SceneEffects"));
+
+function RenderSchedule({ active, onReady }: { active: boolean; onReady: () => void }) {
+  const invalidate = useThree(state => state.invalidate);
+  const frames = useRef(0);
+  useFrame(() => {
+    // onCreated precedes the first rendered frame. Keep the poster until ready.
+    if (++frames.current === 3) onReady();
+  });
+  useEffect(() => {
+    // Demand rendering: 30 fps ambient motion, no loop offscreen/in hidden tabs.
+    // Pointer events also invalidate through Fiber's event system.
+    if (!active) return;
+    const timer = window.setInterval(invalidate, 1000 / 30);
+    invalidate();
+    return () => clearInterval(timer);
+  }, [active, invalidate]);
+  return null;
+}
+
+function Sculpture({ active, constrained }: { active: boolean; constrained: boolean }) {
   const sculpture = useRef<Group>(null);
+  const elapsed = useRef(0);
   const [hovered, setHovered] = useState(false);
-  useFrame(({ clock, pointer, camera }, delta) => {
+  useFrame(({ pointer, camera }, frameDelta) => {
     if (!sculpture.current || !active) return;
-    const time = clock.getElapsedTime();
+    const delta = Math.min(frameDelta, 0.05);
+    const time = (elapsed.current += delta);
     sculpture.current.rotation.y = MathUtils.damp(
       sculpture.current.rotation.y,
       -0.35 + pointer.x * 0.13,
@@ -59,7 +76,7 @@ function Sculpture({ active }: { active: boolean }) {
       onPointerOut={() => setHovered(false)}
     >
       <mesh castShadow receiveShadow>
-        <torusGeometry args={[1.86, 0.3, 32, 120]} />
+        <torusGeometry args={[1.86, 0.3, constrained ? 20 : 32, constrained ? 80 : 120]} />
         <meshPhysicalMaterial
           color="#9b90b3"
           metalness={0.52}
@@ -70,7 +87,7 @@ function Sculpture({ active }: { active: boolean }) {
         />
       </mesh>
       <mesh rotation={[0, 0.2, 0.1]}>
-        <torusGeometry args={[2.36, 0.009, 8, 100]} />
+        <torusGeometry args={[2.36, 0.009, 8, constrained ? 64 : 100]} />
         <meshStandardMaterial
           color="#a79cbd"
           metalness={0.65}
@@ -80,7 +97,7 @@ function Sculpture({ active }: { active: boolean }) {
         />
       </mesh>
       <mesh position={[1.4, 1.1, 0.25]} castShadow>
-        <sphereGeometry args={[0.075, 20, 20]} />
+        <sphereGeometry args={[0.075, constrained ? 12 : 20, constrained ? 12 : 20]} />
         <meshStandardMaterial color="#dfd8ee" metalness={0.7} roughness={0.1} />
       </mesh>
     </group>
@@ -95,25 +112,27 @@ export default function DocumentScene({
   onReady: () => void;
 }) {
   const [effects, setEffects] = useState(false);
+  const [constrained] = useState(() => window.innerWidth < 900 || navigator.hardwareConcurrency <= 4 ||
+    ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4);
   useEffect(() => {
     const media = window.matchMedia(
       "(min-width: 900px) and (prefers-reduced-motion: no-preference)",
     );
-    const update = () => setEffects(media.matches);
+    const update = () => setEffects(media.matches && !constrained);
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
-  }, []);
+  }, [constrained]);
   return (
     <Canvas
-      dpr={[1, 1.5]}
+      dpr={[1, constrained ? 1 : 1.5]}
       camera={{ position: [0, 0, 7.3], fov: 43 }}
-      frameloop={active ? "always" : "demand"}
+      frameloop="demand"
       gl={{ alpha: true, antialias: true, powerPreference: "low-power" }}
       shadows={{ type: PCFShadowMap }}
-      onCreated={onReady}
     >
       <Suspense fallback={null}>
+        <RenderSchedule active={active} onReady={onReady} />
         <ambientLight intensity={0.25} />
         <directionalLight
           position={[3, 5, 4]}
@@ -142,7 +161,7 @@ export default function DocumentScene({
             color="#f5f1db"
           />
         </Environment>
-        <Sculpture active={active} />
+        <Sculpture active={active} constrained={constrained} />
         <ContactShadows
           position={[0, -2.65, 0]}
           opacity={0.3}
@@ -152,26 +171,18 @@ export default function DocumentScene({
           resolution={128}
           frames={1}
         />
-        {active && (
+        <group visible={active}>
           <Sparkles
-            count={20}
+            count={constrained ? 10 : 20}
             scale={[5.5, 5, 2]}
             size={1.4}
             speed={0.15}
             opacity={0.3}
             color="#cabee4"
           />
-        )}
+        </group>
         {effects && (
-          <EffectComposer multisampling={0}>
-            <Bloom intensity={0.14} luminanceThreshold={1.5} mipmapBlur />
-            <DepthOfField
-              focusDistance={0.07}
-              focalLength={0.15}
-              bokehScale={0.4}
-              height={240}
-            />
-          </EffectComposer>
+          <Suspense fallback={null}><SceneEffects /></Suspense>
         )}
       </Suspense>
     </Canvas>

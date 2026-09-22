@@ -72,13 +72,15 @@
   position: absolute;
   bottom: 3px;
   left: 0;
-  width: 0;
+  width: 100%;
   height: 1px;
   background: var(--accent);
-  transition: width 0.3s;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s;
 }
 .nav a:hover::after {
-  width: 100%;
+  transform: scaleX(1);
 }
 .navCta {
   display: flex;
@@ -242,21 +244,6 @@
 .scene canvas {
   width: 100% !important;
   height: 100% !important;
-}
-.orbitFallback {
-  position: absolute;
-  width: 370px;
-  height: 370px;
-  border: 50px solid #77659d;
-  border-radius: 50%;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) rotate(-30deg) scaleX(0.86);
-  box-shadow:
-    inset 8px 0 20px #e7dff955,
-    15px 10px 45px #0007;
-  background: transparent;
-  opacity: 0.65;
 }
 .documentStack {
   position: absolute;
@@ -490,7 +477,7 @@
 .capabilityTop > span {
   font-family: Georgia, serif;
   font-size: 13px;
-  color: #7f7791;
+  color: #867e98;
 }
 .capability h3 {
   font-size: 20px;
@@ -532,13 +519,13 @@
   align-items: center;
 }
 .evidence .eyebrow {
-  color: #706a7e;
+  color: #655e73;
 }
 .evidence h2 em {
   color: #766b8c;
 }
 .evidenceCopy > p {
-  color: #6f6b79;
+  color: #635f6d;
   max-width: 330px;
   line-height: 1.9;
   font-size: 13px;
@@ -563,7 +550,7 @@
 .evidencePrinciple p {
   font-size: 11px;
   line-height: 1.9;
-  color: #7b7785;
+  color: #65616f;
   margin-top: 7px;
 }
 .inlineLink {
@@ -603,7 +590,7 @@
 .previewEyebrow {
   font-size: 8px;
   letter-spacing: 1.3px;
-  color: #8b8697;
+  color: #716b7d;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -656,7 +643,7 @@
   display: block;
   font-size: 8px;
   letter-spacing: 1px;
-  color: #706684;
+  color: #655a79;
   margin-bottom: 10px;
 }
 .sourcePassage blockquote {
@@ -671,7 +658,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 8px;
-  color: #7c758c;
+  color: #716980;
 }
 .previewFooter a {
   text-decoration: underline;
@@ -703,7 +690,7 @@
 .privacyDetails > div > span {
   font-family: Georgia, serif;
   font-size: 11px;
-  color: #796f8d;
+  color: #867b99;
   padding-top: 2px;
 }
 .privacyDetails h3 {
@@ -1231,11 +1218,6 @@
   .footerBottom > a {
     margin-left: auto;
   }
-  .orbitFallback {
-    width: 290px;
-    height: 290px;
-    border-width: 40px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .site *,
@@ -1281,3 +1263,32 @@
 .faq details { border-bottom: 1px solid var(--line); padding: 22px 0; }
 .faq summary { cursor: pointer; font-size: 16px; color: var(--cream); }
 .faq details p { color: #bdb7cc; font-size: 14px; line-height: 1.8; margin-top: 14px; }
+/* The first frame is a transparent render of the original sculpture. Its height
+   follows the same perspective camera framing at every canvas aspect ratio. */
+.scenePoster { position: absolute; inset: 0; pointer-events: none; opacity: 1; transition: opacity .25s; }
+.scenePoster[data-ready="true"] { opacity: 0; }
+.sceneImage { position: absolute; height: 100%; width: auto; max-width: none; left: 50%; transform: translateX(-50%); }
+.evidence :focus-visible { outline-color: #493c66; }
+@keyframes documentAmbient {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0) rotate(-12deg); }
+  50% { transform: translate(-50%, -50%) translateY(-9px) rotate(-10deg); }
+}
+@keyframes sourceAmbient {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(7px); }
+}
+@keyframes sculptureAmbient {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .documentStack { animation: documentAmbient 9s cubic-bezier(.42,0,.58,1) infinite paused; }
+  .sourceFloat { animation: sourceAmbient 7s cubic-bezier(.42,0,.58,1) infinite paused; }
+  .scenePoster { animation: sculptureAmbient 18s ease-in-out infinite paused; }
+  .artwork[data-active="true"] .documentStack,
+  .artwork[data-active="true"] .sourceFloat,
+  .artwork[data-active="true"] .scenePoster:not([data-ready="true"]) { animation-play-state: running; }
+  .revealPending { transform: translateY(28px); }
+  /* GSAP power3.out is a quartic ease-out. No opacity/stagger was in the original. */
+  .revealVisible { transform: translateY(0); transition: transform .85s linear(0, .3439 10%, .5904 20%, .7599 30%, .8704 40%, .9375 50%, .9744 60%, .9919 70%, .9984 80%, .9999 90%, 1); }
+}

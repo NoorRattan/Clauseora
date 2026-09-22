@@ -71,7 +71,7 @@ export default function Home() {
             Open workspace <ArrowUpRight size={15} />
           </Link>
         </header>
-        <main id="main">
+        <main id="main" tabIndex={-1}>
           <section className={styles.hero} aria-labelledby="hero-title">
             <div className={styles.heroCopy}>
               <div className={styles.eyebrow}>

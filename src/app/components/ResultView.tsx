@@ -79,7 +79,7 @@ function EvidenceChips({
   const uniqueIds = [...new Set(ids)];
   return (
     <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
-      <span className="text-[11px] font-mono text-slate-500 mr-0.5">Anchors:</span>
+      <span className="text-[11px] font-mono text-muted-accessible mr-0.5">Anchors:</span>
       {uniqueIds.map((id) => (
         <EvidenceChip
           key={id}
@@ -411,7 +411,7 @@ function CompareView({
               ? "No substantive changes were identified."
               : "No substantive changes match this filter."}
           </p>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-accessible mt-1">
             {filter === "all"
               ? "Formatting-only differences are not shown. Always verify against source documents."
               : "Try another filter or verify against the source documents."}
@@ -463,7 +463,7 @@ function CompareView({
                   </div>
                   <p
                     className={`text-sm leading-relaxed ${
-                      change.before ? "text-slate-200" : "text-slate-500 italic"
+                      change.before ? "text-slate-200" : "text-muted-accessible italic"
                     }`}
                   >
                     {change.before ?? "Not present in original version"}
@@ -483,7 +483,7 @@ function CompareView({
                   </div>
                   <p
                     className={`text-sm leading-relaxed ${
-                      change.after ? "text-slate-200" : "text-slate-500 italic"
+                      change.after ? "text-slate-200" : "text-muted-accessible italic"
                     }`}
                   >
                     {change.after ?? "Removed from revised version"}
@@ -681,7 +681,7 @@ function ActionPackSection({
                   >
                     <div
                       className={`text-sm font-medium ${
-                        isChecked ? "line-through text-slate-500" : "text-slate-200"
+                        isChecked ? "line-through text-muted-accessible" : "text-slate-200"
                       }`}
                     >
                       {item.item}
@@ -795,7 +795,7 @@ export function ResultView({
 
       {/* Limitations Reminder */}
       <div
-        className="p-4 rounded-xl border border-white/5 bg-white/[0.01] text-xs text-slate-500 leading-relaxed font-mono"
+        className="p-4 rounded-xl border border-white/5 bg-white/[0.01] text-xs text-muted-accessible leading-relaxed font-mono"
         role="note"
       >
         <strong className="text-slate-400">Limitation:</strong> Absence from Clauseora output never
