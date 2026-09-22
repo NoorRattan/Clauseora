@@ -21,8 +21,15 @@ import {
   simplifyResponseSchema,
 } from "@/lib/schemas";
 import { CircuitBreaker } from "@/lib/circuit-breaker";
+import { readProviderEnvironment } from "@/lib/provider-config";
+import {
+  containsPromptCanary,
+  createPromptCanary,
+  PROMPT_CANARY_PLACEHOLDER,
+  withPromptCanary,
+} from "@/lib/prompt-safety";
 
-export const GROQ_MODEL = process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-120b";
+export const GROQ_MODEL = readProviderEnvironment().GROQ_MODEL || "openai/gpt-oss-120b";
 /** Conservative token budget for the admitted document (free tier: 8K TPM) */
 export const GROQ_MAX_INPUT_TOKENS = 6_000;
 export const GROQ_MAX_OUTPUT_TOKENS = 4_096;
@@ -72,7 +79,7 @@ export async function callGroq(
   question: string | undefined,
   systemPrompt: string
 ): Promise<GroqResult> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = readProviderEnvironment().GROQ_API_KEY;
   if (!apiKey) {
     return { ok: false, error: "PRIMARY_UNAVAILABLE", details: "GROQ_API_KEY not set" };
   }
@@ -86,9 +93,11 @@ export async function callGroq(
 
   // Build the user message: segments as labeled data
   const userMessage = buildUserMessage(mode, segments, segmentsB, question);
+  const promptCanary = createPromptCanary();
+  const guardedSystemPrompt = withPromptCanary(systemPrompt, promptCanary);
 
   // Token budget check
-  const estimatedInput = estimateTokens(systemPrompt) + estimateTokens(userMessage);
+  const estimatedInput = estimateTokens(guardedSystemPrompt) + estimateTokens(userMessage);
   if (estimatedInput > GROQ_MAX_INPUT_TOKENS) {
     return { ok: false, error: "DOCUMENT_TOO_LONG", details: "Token budget exceeded before API call" };
   }
@@ -105,7 +114,7 @@ export async function callGroq(
     const completion = await client.chat.completions.create({
       model: GROQ_MODEL,
       messages: [
-        { role: "system", content: systemPrompt },
+        { role: "system", content: guardedSystemPrompt },
         { role: "user", content: userMessage },
       ],
       temperature: 0,
@@ -118,6 +127,9 @@ export async function callGroq(
 
     if (!rawContent) {
       return { ok: false, error: "MODEL_REFUSAL" };
+    }
+    if (containsPromptCanary(rawContent, promptCanary)) {
+      return { ok: false, error: "MODEL_OUTPUT_INVALID", details: "prompt canary leaked" };
     }
   } catch (err: unknown) {
     const errorText = getErrorText(err);
@@ -171,25 +183,35 @@ function buildUserMessage(
 ): string {
   const parts: string[] = [];
 
-  parts.push("=== DOCUMENT A SEGMENTS (untrusted data) ===");
+  parts.push("<untrusted_document_a>");
   for (const seg of segmentsA) {
     // The system prompt already carries the complete allowlist. Keep the
     // request payload limited to the ID needed for citation plus source text.
-    parts.push(`[${seg.id}]\n${seg.text}`);
+    parts.push(`<segment id="${seg.id}">${escapePromptText(seg.text)}</segment>`);
   }
+  parts.push("</untrusted_document_a>");
 
   if (segmentsB && segmentsB.length > 0) {
-    parts.push("\n=== DOCUMENT B SEGMENTS (untrusted data) ===");
+    parts.push("<untrusted_document_b>");
     for (const seg of segmentsB) {
-      parts.push(`[${seg.id}]\n${seg.text}`);
+      parts.push(`<segment id="${seg.id}">${escapePromptText(seg.text)}</segment>`);
     }
+    parts.push("</untrusted_document_b>");
   }
 
   if (mode === "ask" && question) {
-    parts.push(`\n=== USER QUESTION (untrusted data) ===\n${question}`);
+    parts.push(`<untrusted_question>${escapePromptText(question)}</untrusted_question>`);
   }
 
   return parts.join("\n\n");
+}
+
+function escapePromptText(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;");
 }
 
 export function getGroqOutputTokenBudget(estimatedInputTokens: number): number {
@@ -207,7 +229,7 @@ export function estimateGroqInputTokens(
   question: string | undefined,
   systemPrompt: string,
 ): number {
-  return estimateTokens(systemPrompt) + estimateTokens(
+  return estimateTokens(withPromptCanary(systemPrompt, PROMPT_CANARY_PLACEHOLDER)) + estimateTokens(
     buildUserMessage(mode, segmentsA, segmentsB, question),
   );
 }

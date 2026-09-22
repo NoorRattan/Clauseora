@@ -50,6 +50,7 @@ import {
   selectClaimsForVerification,
 } from "@/lib/cloudflare";
 import { buildClaimTexts } from "@/lib/verification-claims";
+import { PiiTokenVault } from "@/lib/pii-tokenizer";
 import { checkRateLimit, isSameOriginRequest } from "@/lib/request-security";
 import {
   collectAllAnchorIds,
@@ -229,7 +230,16 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
   for (const seg of segmentsA) evidenceIndex.set(seg.id, seg);
   if (segmentsB) for (const seg of segmentsB) evidenceIndex.set(seg.id, seg);
 
-  // ─── 4. Token budget check ─────────────────────────────────────────────────
+  // ─── 4. Protect direct identifiers before any provider boundary ───────────
+  // Anchor IDs and the evidence index remain based on the original text. Only
+  // provider payload copies are protected; the final evidence drawer still
+  // shows the canonical source passage the user uploaded.
+  const piiVault = new PiiTokenVault();
+  const providerSegmentsA = piiVault.protectSegments(segmentsA);
+  const providerSegmentsB = segmentsB ? piiVault.protectSegments(segmentsB) : null;
+  const providerQuestion = question ? piiVault.protectText(question) : question;
+
+  // ─── 5. Token budget check ─────────────────────────────────────────────────
   const anchorIdsA = segmentsA.map((s) => s.id);
   const anchorIdsB = segmentsB?.map((s) => s.id) ?? [];
   const allAnchorIds = [...anchorIdsA, ...anchorIdsB];
@@ -237,9 +247,9 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
   const systemPrompt = getSystemPrompt(mode, anchorIdsA, anchorIdsB);
   const estimatedTokens = estimateGroqInputTokens(
     mode,
-    segmentsA,
-    segmentsB,
-    question,
+    providerSegmentsA,
+    providerSegmentsB,
+    providerQuestion,
     systemPrompt,
   );
 
@@ -252,17 +262,23 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
     );
   }
 
-  // ─── 5. Call Groq primary ──────────────────────────────────────────────────
+  // ─── 6. Call Groq primary ──────────────────────────────────────────────────
   const primaryStartedAt = performance.now();
-  const groqResult = await callGroq(mode, segmentsA, segmentsB, question, systemPrompt);
+  const groqResult = await callGroq(
+    mode,
+    providerSegmentsA,
+    providerSegmentsB,
+    providerQuestion,
+    systemPrompt,
+  );
   const primaryDuration = performance.now() - primaryStartedAt;
   if (!groqResult.ok) {
     return errorResponse(requestId, mode, groqResult.error, safeGroqMessage(groqResult.error));
   }
 
-  // ─── 6. Validate schema + anchor allowlist ─────────────────────────────────
-  let modeResult = groqResult.result;
-  const actionPack = groqResult.actionPack;
+  // ─── 7. Restore only ordinary model text; evidence remains server-owned ───
+  let modeResult = piiVault.restoreValue(groqResult.result);
+  const actionPack = piiVault.restoreValue(groqResult.actionPack);
 
   // Apply the fixed abstention before resolving anchors so a not_found answer
   // can never return stale evidence from model-supplied IDs.
@@ -290,7 +306,7 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
     return errorResponse(requestId, mode, "MODEL_OUTPUT_INVALID", "The analysis result could not be verified and was withheld for your safety.");
   }
 
-  // ─── 7. Resolve anchor IDs → canonical excerpts ────────────────────────────
+  // ─── 8. Resolve anchor IDs → canonical excerpts ────────────────────────────
   const resolvedAnchors: AnchorRef[] = [];
   for (const id of allUsedIds) {
     const seg = evidenceIndex.get(id);
@@ -304,18 +320,23 @@ async function processRequest(req: NextRequest, requestId: string): Promise<Next
     });
   }
 
-  // ─── 8. Cloudflare verification ────────────────────────────────────────────
+  // ─── 9. Cloudflare verification ────────────────────────────────────────────
   const highImpactIds = selectHighImpactIds(modeResult, mode);
   const claimTexts = buildClaimTexts(modeResult, mode);
   const claimsToVerify = selectClaimsForVerification(resolvedAnchors, highImpactIds, claimTexts);
+  const providerClaims = claimsToVerify.map((claim) => ({
+    ...claim,
+    claimText: piiVault.protectText(claim.claimText),
+    excerpts: claim.excerpts.map((excerpt) => piiVault.protectText(excerpt)),
+  }));
   const verifierStartedAt = performance.now();
-  const cfResult = await callCloudflare(claimsToVerify);
+  const cfResult = await callCloudflare(providerClaims);
   const verifierDuration = performance.now() - verifierStartedAt;
 
-  // ─── 9. Derive verification status ────────────────────────────────────────
+  // ─── 10. Derive verification status ───────────────────────────────────────
   const verification = deriveVerification(cfResult);
 
-  // ─── 10. Return safe response ──────────────────────────────────────────────
+  // ─── 11. Return safe response ──────────────────────────────────────────────
   const documents: import("@/types/evidence").DocumentMeta[] = [
     {
       key: "A" as const,

@@ -83,7 +83,8 @@ export function HeroArtwork() {
             <Image
               src="/hero-scene.webp"
               alt="Evidence-linked legal document illustration"
-              fill
+              width={749}
+              height={568}
               sizes="(max-width: 899px) 420px, 749px"
               loading="eager"
               fetchPriority="high"

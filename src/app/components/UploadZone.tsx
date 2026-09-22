@@ -261,7 +261,7 @@ export function UploadZone({
               onClick={(e) =>
                 loadSample("mutual-nda", "Mutual-NDA-Standard.txt", e)
               }
-              className="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-300 bg-white/5 hover:bg-amber-500/10 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 transition-all disabled:opacity-50"
+              className="px-2.5 py-1.5 min-h-6 rounded-md text-[11px] font-mono text-slate-300 bg-white/5 hover:bg-amber-500/10 hover:text-amber-300 border border-white/10 hover:border-amber-500/30 transition-all disabled:opacity-50"
             >
               {loadingPreset === "mutual-nda" ? "Loading..." : "Mutual NDA"}
             </button>
@@ -279,7 +279,7 @@ export function UploadZone({
                   e,
                 )
               }
-              className="px-2.5 py-1 rounded-md text-[11px] font-mono text-slate-300 bg-white/5 hover:bg-cyan-500/10 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/30 transition-all disabled:opacity-50"
+              className="px-2.5 py-1.5 min-h-6 rounded-md text-[11px] font-mono text-slate-300 bg-white/5 hover:bg-cyan-500/10 hover:text-cyan-300 border border-white/10 hover:border-cyan-500/30 transition-all disabled:opacity-50"
             >
               {loadingPreset?.startsWith("services")
                 ? "Loading..."

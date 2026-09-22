@@ -83,7 +83,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps) {
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs font-mono text-amber-400 hover:text-amber-300 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 transition-colors flex-shrink-0"
+            className="flex items-center gap-1 text-xs font-mono text-amber-400 hover:text-amber-300 px-2.5 py-1.5 min-h-6 rounded-lg bg-amber-500/10 border border-amber-500/20 transition-colors flex-shrink-0"
             aria-expanded={expanded}
             aria-controls="verification-issues"
           >

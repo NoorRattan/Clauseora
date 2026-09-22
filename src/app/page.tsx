@@ -279,10 +279,11 @@ export default function Home() {
                 <section>
                   <h3>A clear view of where your text goes.</h3>
                   <p>
-                    Groq receives your admitted document text for analysis. When
-                    enabled, Cloudflare receives selected claims and source
-                    excerpts for an additional check. Provider data policies
-                    apply.
+                    Groq receives the admitted document text needed for analysis,
+                    with common direct identifiers replaced by request-scoped
+                    placeholders first. When enabled, Cloudflare receives only
+                    selected claims and source excerpts, also protected before
+                    the additional check. Provider data policies apply.
                   </p>
                 </section>
               </div>

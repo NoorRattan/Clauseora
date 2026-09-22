@@ -23,14 +23,14 @@ let clientSequence = 0;
 
 function makeRequest(
   mode: "simplify" | "ask" = "simplify",
-  options: { origin?: string; question?: string } = {},
+  options: { origin?: string; question?: string; documentText?: string } = {},
 ): NextRequest {
   const form = new FormData();
   form.set("mode", mode);
   form.set(
     "documentA",
     new File(
-      ["Payment is due within 30 days of receiving an invoice."],
+      [options.documentText ?? "Payment is due within 30 days of receiving an invoice."],
       "agreement.txt",
       { type: "text/plain" },
     ),
@@ -93,6 +93,59 @@ describe("POST /api/process production orchestration", () => {
       }),
     ]);
     expect(providerMocks.callGroq).toHaveBeenCalledOnce();
+  });
+
+  it("protects provider payloads while restoring ordinary model text", async () => {
+    const originalEmail = "alex@example.com";
+    const originalPhone = "+1 (415) 555-2671";
+    providerMocks.callGroq.mockImplementation(
+      async (_mode: string, providerSegments: Array<{ text: string }>) => {
+        const providerText = providerSegments.map((segment) => segment.text).join(" ");
+        expect(providerText).not.toContain(originalEmail);
+        expect(providerText).not.toContain(originalPhone);
+        const emailToken = providerText.match(/\[\[CLAUSEORA_PII_EMAIL_\d+\]\]/)?.[0] ?? "";
+        return {
+          ok: true,
+          model: "test-model",
+          result: {
+            clauses: [
+              {
+                topic: "Contact",
+                plainLanguage: `Contact ${emailToken}`,
+                definedTerms: [],
+                items: [
+                  {
+                    kind: "money",
+                    party: "not_stated",
+                    statement: `Pay ${emailToken} $500.`,
+                    anchorIds: ["A-l001-b001"],
+                  },
+                ],
+                anchorIds: ["A-l001-b001"],
+              },
+            ],
+          },
+          actionPack: { checklist: [], lawyerQuestions: [] },
+        };
+      },
+    );
+
+    const response = await POST(
+      makeRequest("simplify", {
+        documentText: `Contact ${originalEmail} or ${originalPhone}. Payment is $500.`,
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.result.clauses[0].plainLanguage).toContain(originalEmail);
+    expect(body.result.clauses[0].items[0].statement).toContain(originalEmail);
+    const verifierClaims = providerMocks.callCloudflare.mock.calls[0]?.[0] as Array<{
+      claimText: string;
+      excerpts: string[];
+    }>;
+    expect(verifierClaims[0].claimText).not.toContain(originalEmail);
+    expect(verifierClaims[0].excerpts[0]).not.toContain(originalEmail);
   });
 
   it("withholds a model response that invents an anchor", async () => {

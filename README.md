@@ -35,7 +35,7 @@ The production deployment is connected to the [`main` branch](https://github.com
 
 | Provider | Model | Purpose |
 |---|---|---|
-| **Groq** (primary) | `openai/gpt-oss-120b` | Full document Simplify, Compare, Ask, Action Pack generation |
+| **Groq** (primary) | `openai/gpt-oss-120b` | Protected admitted document text for Simplify, Compare, Ask, Action Pack generation |
 | **Cloudflare Workers AI** (verifier) | `@cf/meta/llama-3.1-8b-instruct-fast` | Checks selected high-impact claims against cited excerpts |
 
 One endpoint: `POST /api/process`. Maximum two AI calls per request.
@@ -50,6 +50,9 @@ No majority voting. Disagreement is surfaced, not hidden.
 ---
 
 ## Architecture
+
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the request lifecycle, trust
+boundaries, provider behavior, and verification commands.
 
 ```
 Browser (upload + results)
@@ -100,7 +103,7 @@ No database, no object storage, no persistent model history.
 
 ## Privacy
 
-Your document is sent to our server for processing. **Groq receives the full admitted document text**. **Cloudflare receives only selected high-impact claims and their cited excerpts** — not the full document.
+Your document is sent to our server for processing. **Groq receives the admitted document text needed for analysis, with common direct identifiers replaced by request-scoped placeholders first**. **Cloudflare receives only selected high-impact claims and their cited excerpts, also protected before the call** — not the full document. The original values are restored only in the volatile response and are never logged or persisted.
 
 Clauseora does not save your document to any database or storage. The app has no accounts and no stored history. Request buffers are eligible for collection when the request ends.
 
@@ -152,10 +155,11 @@ Configure `GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_AI_TOKEN` in 
 
 ```bash
 npm run verify           # lint, types, coverage gates, build, and dependency audit
-npm test                 # 18 test files, 174 tests
+npm run analyze:bundle   # report production JavaScript chunk sizes after a build
+npm test                 # 20 test files, 191 tests
 ```
 
-The current suite contains 18 test files and 174 tests. It exercises the production route handler and both provider adapters, plus deterministic circuit-breaker, sliding-window, bounded-cache, conditional sample delivery, evidence, and security contracts. CI enforces minimum server coverage of 77% statements, 61% branches, 85% functions, and 80% lines. See [SECURITY.md](SECURITY.md) for the privacy and threat model.
+The current suite contains 20 test files and 191 tests. It exercises the production route handler and both provider adapters, plus deterministic circuit-breaker, sliding-window, bounded-cache, conditional sample delivery, evidence, frontend accessibility, PII-boundary, and security contracts. CI enforces minimum server coverage of 77% statements, 61% branches, 85% functions, and 80% lines. See [SECURITY.md](SECURITY.md) for the privacy and threat model.
 
 ---
 

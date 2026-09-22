@@ -903,3 +903,24 @@ html { scroll-padding-top: 24px; }
 
 /* Only text labels that failed AA; retain decorative slate-500 icons. */
 .workspace-shell .text-muted-accessible { color: #929bb0; }
+.workspace-shell .text-slate-400 { color: #a8afc0; }
+.workspace-shell .text-slate-600 { color: #9099ad; }
+.workspace-shell .placeholder-slate-500::placeholder { color: #9da6b8; opacity: 1; }
+
+.workspace-skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  padding: 0.7rem 1rem;
+  border-radius: 0.75rem;
+  background: #f2eee7;
+  color: #141522;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  transform: translateY(-200%);
+  transition: transform 150ms ease;
+}
+.workspace-skip-link:focus {
+  transform: translateY(0);
+}

@@ -9,6 +9,12 @@
 
 import type { AnchorRef, Verification, VerificationIssue } from "@/types/evidence";
 import { CircuitBreaker } from "@/lib/circuit-breaker";
+import { readProviderEnvironment } from "@/lib/provider-config";
+import {
+  containsPromptCanary,
+  createPromptCanary,
+  withPromptCanary,
+} from "@/lib/prompt-safety";
 
 export const CF_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 
@@ -39,8 +45,8 @@ export type CfResult =
  * Returns gracefully degraded result on any failure.
  */
 export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult> {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID?.trim();
-  const token = process.env.CLOUDFLARE_AI_TOKEN?.trim();
+  const { CLOUDFLARE_ACCOUNT_ID: accountId, CLOUDFLARE_AI_TOKEN: token } =
+    readProviderEnvironment();
 
   if (!accountId || !token) {
     return { ok: false, reason: "disabled" };
@@ -55,6 +61,8 @@ export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult>
   const url = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId.trim())}/ai/run/${CF_MODEL}`;
 
   const prompt = buildVerificationPrompt(claims);
+  const promptCanary = createPromptCanary();
+  const guardedSystemPrompt = withPromptCanary(VERIFIER_SYSTEM_PROMPT, promptCanary);
 
   let responsePayload: unknown;
   let providerReached = false;
@@ -69,7 +77,7 @@ export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult>
       },
       body: JSON.stringify({
         messages: [
-          { role: "system", content: VERIFIER_SYSTEM_PROMPT },
+          { role: "system", content: guardedSystemPrompt },
           { role: "user", content: prompt },
         ],
         max_tokens: 512,
@@ -99,6 +107,9 @@ export async function callCloudflare(claims: ClaimToVerify[]): Promise<CfResult>
       success?: boolean;
     };
     responsePayload = json.result?.response ?? "";
+    if (containsPromptCanary(responsePayload, promptCanary)) {
+      return { ok: false, reason: "invalid" };
+    }
   } catch {
     if (!providerReached) cloudflareCircuitBreaker.recordFailure();
     return { ok: false, reason: "unavailable" };

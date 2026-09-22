@@ -58,7 +58,7 @@ function EvidenceChip({
       onClick={() => onEvidenceClick(anchor)}
       aria-label={`Evidence: ${anchor.locator}`}
       title={`Click to view verbatim source excerpt: ${anchor.locator}`}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400 shadow-sm transition-all duration-200"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-6 rounded-lg text-xs font-mono font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400 shadow-sm transition-all duration-200"
     >
       <Bookmark className="w-3 h-3 text-amber-400" />
       <span>{anchor.locator}</span>
@@ -198,14 +198,14 @@ function SimplifyView({
           <button
             type="button"
             onClick={expandAll}
-            className="text-xs font-mono text-slate-400 hover:text-white px-2 py-1 rounded bg-white/5 border border-white/10 transition-colors"
+            className="text-xs font-mono text-slate-400 hover:text-white px-3 py-1.5 min-h-6 rounded bg-white/5 border border-white/10 transition-colors"
           >
             Expand All
           </button>
           <button
             type="button"
             onClick={collapseAll}
-            className="text-xs font-mono text-slate-400 hover:text-white px-2 py-1 rounded bg-white/5 border border-white/10 transition-colors"
+            className="text-xs font-mono text-slate-400 hover:text-white px-3 py-1.5 min-h-6 rounded bg-white/5 border border-white/10 transition-colors"
           >
             Collapse All
           </button>
@@ -663,7 +663,7 @@ function ActionPackSection({
                       event.stopPropagation();
                       toggleItem(i);
                     }}
-                    className="mt-0.5 text-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-950"
+                    className="mt-0.5 min-h-6 min-w-6 flex items-center justify-center text-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-950"
                   >
                     {isChecked ? (
                       <CheckSquare className="w-4 h-4 text-emerald-400" />

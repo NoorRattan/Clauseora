@@ -7,15 +7,17 @@ Clauseora processes legal documents without user accounts or application-level p
 1. The browser uploads one or two files to the same-origin `/api/process` endpoint.
 2. The server validates file count, size, extension, MIME type, magic bytes, UTF-8 content, and parser limits before analysis.
 3. Text is split into deterministic, application-owned evidence anchors.
-4. Groq receives the admitted text segments and the selected task instructions.
-5. Cloudflare receives only selected high-impact claims and bounded cited excerpts, never the full document or filename.
-6. The response is returned with `no-store`; Clauseora does not write documents, extracted text, questions, prompts, or model output to a database, filesystem, analytics service, or application log.
+4. Common direct identifiers in provider payload copies are replaced with request-scoped placeholders; the original evidence index remains server-owned.
+5. Groq receives the protected admitted text segments and selected task instructions.
+6. Cloudflare receives only selected high-impact claims and bounded cited excerpts, protected before the call, never the full document or filename.
+7. The response is returned with `no-store`; Clauseora does not write documents, extracted text, questions, prompts, or model output to a database, filesystem, analytics service, or application log.
 
 The configured AI providers remain independent data processors. Deployment owners must configure their provider retention and regional controls appropriately and disclose those providers to users.
 
 ## Required controls
 
 - Provider credentials are server-only environment variables.
+- Common emails, phone numbers, government/account identifiers, payment-card values, and IP addresses are tokenized per request before provider calls and restored only in the in-memory response path.
 - Browser API requests are same-origin and rate limited. Client identifiers are SHA-256 hashed before entering the short-lived, bounded in-memory limiter.
 - Model output is schema validated and every citation is checked against the deterministic anchor allowlist.
 - Compare citations are validated against their document-specific namespace.

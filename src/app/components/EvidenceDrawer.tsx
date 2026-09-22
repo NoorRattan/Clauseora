@@ -111,7 +111,7 @@ export function EvidenceDrawer({ anchor, onClose }: EvidenceDrawerProps) {
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-300 font-medium transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-1.5 min-h-6 text-xs text-slate-400 hover:text-amber-300 font-medium transition-colors"
                 >
                   {copied ? (
                     <>

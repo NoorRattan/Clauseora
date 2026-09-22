@@ -119,16 +119,18 @@ function DisclosureModal({ onClose }: { onClose: () => void }) {
                   <strong className="text-amber-300">
                     1. Groq (Primary Analysis):
                   </strong>{" "}
-                  Receives the extracted document passages needed to explain
-                  terms and identify obligations.
+                  Receives the extracted passages needed to explain terms and
+                  identify obligations. Common direct identifiers are replaced
+                  with request-scoped placeholders before the call.
                 </div>
                 <div className="pt-2 border-t border-white/5">
                   <strong className="text-cyan-300">
                     2. Cloudflare Workers AI (Optional Check):
                   </strong>{" "}
                   When configured, receives only selected high-impact claims
-                  alongside their cited passages. Your use of both providers is
-                  also subject to their current data policies.
+                  alongside their cited passages, with common direct identifiers
+                  protected before the call. Your use of both providers is also
+                  subject to their current data policies.
                 </div>
               </div>
             </section>
@@ -315,6 +317,9 @@ function Workspace({
 
   return (
     <div className="workspace-shell min-h-screen flex flex-col relative text-slate-100 selection:bg-amber-500/30 selection:text-amber-200">
+      <a className="workspace-skip-link" href="#workspace-main">
+        Skip to document workspace
+      </a>
       {/* 3D WebGL Holographic Monolith Canvas */}
 
       {/* Subtle Noise Texture Overlay */}
@@ -362,7 +367,11 @@ function Workspace({
       </header>
 
       {/* ── Main Workspace ── */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 sm:space-y-10">
+      <main
+        id="workspace-main"
+        aria-label="Document analysis workspace"
+        className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 sm:space-y-10"
+      >
         {/* Hero Section */}
         {!apiResult && !isLoading && (
           <div className="text-center space-y-4 max-w-2xl mx-auto pt-2 sm:pt-6">
@@ -541,15 +550,17 @@ function Workspace({
                   <strong className="text-slate-300">
                     Before you analyze:
                   </strong>{" "}
-                  Your document text is sent to Groq for analysis and is not
-                  saved by Clauseora. If the optional Cloudflare verifier is
-                  configured, it receives only selected high-impact claims and
-                  their cited passages.
+                  Protected document text is sent to Groq for analysis and is
+                  not saved by Clauseora. Common direct identifiers are
+                  replaced with request-scoped placeholders and restored only
+                  in the volatile response. If the optional Cloudflare verifier
+                  is configured, it receives only selected high-impact claims
+                  and their cited passages, also protected before the call.
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowDisclosure(true)}
-                  className="text-amber-400 hover:text-amber-300 font-semibold whitespace-nowrap"
+                  className="px-2 py-1.5 min-h-6 text-amber-400 hover:text-amber-300 font-semibold whitespace-nowrap"
                 >
                   Architecture details ›
                 </button>
@@ -683,7 +694,7 @@ function Workspace({
             <button
               type="button"
               onClick={() => setShowDisclosure(true)}
-              className="hover:text-slate-300 transition-colors"
+              className="px-2 py-1.5 min-h-6 hover:text-slate-300 transition-colors"
             >
               Privacy & Retention
             </button>
