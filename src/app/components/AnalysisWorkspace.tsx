@@ -330,9 +330,9 @@ function Workspace({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-3 group focus:outline-none"
+            className="flex items-center gap-3 group focus:outline-hidden"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-obsidian-950 shadow-glow-amber group-hover:scale-105 transition-transform duration-200">
+            <div className="w-10 h-10 rounded-2xl bg-linear-to-br from-amber-400 to-amber-600 flex items-center justify-center text-obsidian-950 shadow-glow-amber group-hover:scale-105 transition-transform duration-200">
               <Scale className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
@@ -461,7 +461,7 @@ function Workspace({
                           bounce: 0.2,
                           duration: 0.4,
                         }}
-                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 shadow-glow-amber"
+                        className="absolute inset-0 rounded-xl bg-linear-to-r from-amber-400 via-amber-300 to-amber-400 shadow-glow-amber"
                       />
                     )}
                     <span className="relative z-10">{m.icon}</span>
@@ -538,7 +538,7 @@ function Workspace({
                     maxLength={2000}
                     rows={3}
                     disabled={isLoading}
-                    className="w-full rounded-2xl bg-obsidian-950/80 border border-white/10 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 p-4 text-sm text-slate-100 placeholder-slate-500 outline-none transition-all resize-vertical font-sans"
+                    className="w-full rounded-2xl bg-obsidian-950/80 border border-white/10 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 p-4 text-sm text-slate-100 placeholder-slate-500 outline-hidden transition-all resize-vertical font-sans"
                     aria-label="Your question about the document"
                   />
                 </div>
@@ -574,7 +574,7 @@ function Workspace({
                 aria-busy={isLoading}
                 className={`w-full py-4 rounded-2xl font-bold text-sm tracking-wide transition-all duration-300 flex items-center justify-center gap-2 ${
                   canSubmit && !isLoading
-                    ? "bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-obsidian-950 shadow-glow-amber hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] hover:scale-[1.006] active:scale-[0.995]"
+                    ? "bg-linear-to-r from-amber-400 via-amber-300 to-amber-500 text-obsidian-950 shadow-glow-amber hover:shadow-[0_0_40px_rgba(245,158,11,0.5)] hover:scale-[1.006] active:scale-[0.995]"
                     : "bg-white/5 text-slate-600 border border-white/5 cursor-not-allowed"
                 }`}
               >

@@ -91,7 +91,7 @@ export function LoadingState({ stepIndex, onCancel }: LoadingStateProps) {
             initial={{ width: 0 }}
             animate={{ width: `${progressPercent}%` }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-cyan-400 rounded-full shadow-glow-amber"
+            className="h-full bg-linear-to-r from-amber-500 via-amber-400 to-cyan-400 rounded-full shadow-glow-amber"
           />
         </div>
       </div>
@@ -108,11 +108,11 @@ export function LoadingState({ stepIndex, onCancel }: LoadingStateProps) {
                 isCurrent
                   ? "border-amber-500/40 bg-amber-500/5 text-slate-100 shadow-glow-amber"
                   : isDone
-                  ? "border-white/5 bg-white/[0.02] text-slate-400"
+                  ? "border-white/5 bg-white/2 text-slate-400"
                   : "border-transparent text-slate-600"
               }`}
             >
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 {isDone ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 ) : isCurrent ? (

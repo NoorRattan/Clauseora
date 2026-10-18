@@ -58,7 +58,7 @@ function EvidenceChip({
       onClick={() => onEvidenceClick(anchor)}
       aria-label={`Evidence: ${anchor.locator}`}
       title={`Click to view verbatim source excerpt: ${anchor.locator}`}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-6 rounded-lg text-xs font-mono font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400 shadow-sm transition-all duration-200"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-6 rounded-lg text-xs font-mono font-medium text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400 shadow-xs transition-all duration-200"
     >
       <Bookmark className="w-3 h-3 text-amber-400" />
       <span>{anchor.locator}</span>
@@ -198,14 +198,14 @@ function SimplifyView({
           <button
             type="button"
             onClick={expandAll}
-            className="text-xs font-mono text-slate-400 hover:text-white px-3 py-1.5 min-h-6 rounded bg-white/5 border border-white/10 transition-colors"
+            className="text-xs font-mono text-slate-400 hover:text-white px-3 py-1.5 min-h-6 rounded-sm bg-white/5 border border-white/10 transition-colors"
           >
             Expand All
           </button>
           <button
             type="button"
             onClick={collapseAll}
-            className="text-xs font-mono text-slate-400 hover:text-white px-3 py-1.5 min-h-6 rounded bg-white/5 border border-white/10 transition-colors"
+            className="text-xs font-mono text-slate-400 hover:text-white px-3 py-1.5 min-h-6 rounded-sm bg-white/5 border border-white/10 transition-colors"
           >
             Collapse All
           </button>
@@ -234,7 +234,7 @@ function SimplifyView({
                 onClick={() => toggleClause(i)}
               >
                 <div className="flex items-center gap-3 min-w-0 pr-4">
-                  <span className="text-xs font-mono text-amber-400 font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 flex-shrink-0">
+                  <span className="text-xs font-mono text-amber-400 font-bold px-2 py-0.5 rounded-sm bg-amber-500/10 border border-amber-500/20 shrink-0">
                     § 0{i + 1}
                   </span>
                   <span className="text-base font-bold text-white tracking-tight truncate">
@@ -242,7 +242,7 @@ function SimplifyView({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3 flex-shrink-0">
+                <div className="flex items-center gap-3 shrink-0">
                   {clause.items?.length > 0 && (
                     <span className="text-[11px] font-mono text-slate-400 hidden sm:inline-block">
                       {clause.items.length} item{clause.items.length !== 1 ? "s" : ""}
@@ -296,7 +296,7 @@ function SimplifyView({
                             {clause.definedTerms.map((dt, di) => (
                               <div
                                 key={di}
-                                className="p-2.5 rounded-lg bg-white/[0.02] border border-white/5 text-xs leading-normal"
+                                className="p-2.5 rounded-lg bg-white/2 border border-white/5 text-xs leading-normal"
                               >
                                 <span className="font-bold text-cyan-300 font-mono">
                                   {dt.term}
@@ -323,12 +323,12 @@ function SimplifyView({
                             {clause.items.map((item, ii) => (
                               <div
                                 key={ii}
-                                className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
+                                className="p-3.5 rounded-xl bg-white/2 border border-white/5 hover:border-white/10 transition-colors"
                               >
                                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
                                   <KindBadge kind={item.kind} />
                                   {item.party && item.party !== "not_stated" && (
-                                    <span className="text-xs font-semibold text-slate-300 bg-white/5 px-2 py-0.5 rounded">
+                                    <span className="text-xs font-semibold text-slate-300 bg-white/5 px-2 py-0.5 rounded-sm">
                                       Party: {item.party}
                                     </span>
                                   )}
@@ -499,7 +499,7 @@ function CompareView({
               {/* Why Review Callout */}
               {change.whyReview && (
                 <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 leading-relaxed flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold text-amber-300">Review Rationale:</span>{" "}
                     {change.whyReview}
@@ -651,7 +651,7 @@ function ActionPackSection({
                   onClick={() => toggleItem(i)}
                   className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
                     isChecked
-                      ? "border-white/5 bg-white/[0.01] opacity-60"
+                      ? "border-white/5 bg-white/1 opacity-60"
                       : "border-white/10 bg-obsidian-900/60 hover:border-white/20 hover:bg-obsidian-850/60"
                   } backdrop-blur-xl flex items-start gap-3`}
                 >
@@ -663,7 +663,7 @@ function ActionPackSection({
                       event.stopPropagation();
                       toggleItem(i);
                     }}
-                    className="mt-0.5 min-h-6 min-w-6 flex items-center justify-center text-amber-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-950"
+                    className="mt-0.5 min-h-6 min-w-6 flex items-center justify-center text-amber-400 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-obsidian-950"
                   >
                     {isChecked ? (
                       <CheckSquare className="w-4 h-4 text-emerald-400" />
@@ -795,7 +795,7 @@ export function ResultView({
 
       {/* Limitations Reminder */}
       <div
-        className="p-4 rounded-xl border border-white/5 bg-white/[0.01] text-xs text-muted-accessible leading-relaxed font-mono"
+        className="p-4 rounded-xl border border-white/5 bg-white/1 text-xs text-muted-accessible leading-relaxed font-mono"
         role="note"
       >
         <strong className="text-slate-400">Limitation:</strong> Absence from Clauseora output never
